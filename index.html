@@ -3,50 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gel-Git Hexagon Simulator v13.0 (Map Editor Mode)</title>
+    <title>Gel-Git Hexagon Simulator v14.0 (3-Phase Tactical)</title>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
-        .info-panel { font-size: 20px; margin-bottom: 15px; color: #aaa; display: flex; justify-content: center; align-items: center; gap: 20px; }
+        .info-panel { font-size: 20px; margin-bottom: 15px; color: #aaa; display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; }
         
-        .reset-btn {
-            background: #e74c3c;
-            color: white;
-            border: none;
-            padding: 6px 15px;
-            font-size: 14px;
-            font-weight: bold;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background 0.2s;
+        .btn {
+            color: white; border: none; padding: 8px 18px; font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: background 0.2s;
         }
+        .mode-btn { background: #3498db; }
+        .mode-btn:hover { background: #2980b9; }
+        .mode-active { background: #2ecc71 !important; box-shadow: 0 0 10px #2ecc71; }
+        .reset-btn { background: #e74c3c; }
         .reset-btn:hover { background: #c0392b; }
 
         canvas { background: #1a1a1a; border: 2px solid #333; border-radius: 12px; margin-top: 10px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         .legend-area { display: flex; justify-content: center; gap: 15px; margin-top: 20px; font-size: 14px; }
         .leg-item { display: flex; align-items: center; gap: 5px; }
         .leg-box { width: 15px; height: 15px; border-radius: 3px; }
+        .status-txt { font-weight: bold; color: #00e5ff; }
     </style>
 </head>
 <body>
 
     <div class="info-panel">
         <div>Turn: <span id="turn_val" style="color:white; font-weight:bold;">1</span></div>
-        <button class="reset-btn" onclick="resetSimulation()">🔄 Haritayı Temizle (R)</button>
+        <div>Aktif Mod: <span id="status_val" class="status-txt">1. YOL ÇİZİMİ (P)</span></div>
+        <button id="phase_btn" class="btn mode-btn" onclick="switchPhase()">➡️ Enerji Atama Moduna Geç</button>
+        <button class="reset-btn btn" onclick="resetSimulation()">🔄 Sıfırla (R)</button>
     </div>
     
-    <h2>Gel-Git Simulator (Önce Yolu Çiz, Sonra Başlat)</h2>
+    <h2>Gel-Git Simulator (3 Aşamalı Taktik Matris)</h2>
     
     <canvas id="mainCanvas" width="600" height="320"></canvas>
     
-    <p style="color:#888;">💡 <b>Önce Tasarla:</b> Hücrelere tıklayarak P0-P3 arası oyuncu veya B (Block) yerleştir. | <b>SPACE:</b> Simülasyonu Başlat/Turn Atlat</p>
+    <p style="color:#888;">💡 <b>1. Aşama:</b> Tıklayarak 'P' yolunu çiz. | <b>2. Aşama:</b> Butona basıp yola enerjilerini gir. | <b>3. Aşama:</b> SPACE ile turn atlat.</p>
 
     <div class="legend-area">
-        <div class="leg-item"><div class="leg-box" style="background:#1a1a1a; border:1px solid #333;"></div> Boş / İnaktif Hücre</div>
-        <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> [P3] Max Güç</div>
+        <div class="leg-item"><div class="leg-box" style="background:#1e1e1e; border:1px solid #333;"></div> Boş Alan</div>
+        <div class="leg-item"><div class="leg-box" style="background:#9b59b6"></div> [P] Belirlenen Yol</div>
+        <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> [P3] Güvenli</div>
         <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> [P2] Stabil</div>
         <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> [P1] Kritik</div>
         <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> [P0] Çökmüş</div>
-        <div class="leg-item"><div class="leg-box" style="background:#0a0a0a; border: 1px dashed #777;"></div> [B] Block / Engel (Sabit)</div>
+        <div class="leg-item"><div class="leg-box" style="background:#0a0a0a; border:1px dashed #555;"></div> [B] Block (Sağ Tık)</div>
     </div>
 
     <script>
@@ -56,30 +56,52 @@
         let turn = 1;
         const r = 42; 
         
-        // Renk Tanımlamaları (null: Boş hücre, -1: Block, 0-3: Player Enerjileri)
-        const colors = { 
-            "null": '#1e1e1e',
-            "-1": '#0a0a0a',
-            "3": '#2ecc71', 
-            "2": '#f1c40f', 
-            "1": '#e74c3c', 
-            "0": '#34495e' 
-        };
-        
-        const textColors = { "3": '#000', "2": '#000', "1": '#fff', "0": '#fff', "-1": '#888' };
+        // İşlem Aşamaları: "path" (Yol Çizimi), "energy" (Enerji Atama), "sim" (Simülasyon Başladı)
+        let currentPhase = "path"; 
 
-        // 6x3 Matris - Başlangıçta tamamen boş (null) ve yönsüz (0) olarak kuruluyor.
+        const colors = { 
+            "null": '#1e1e1e', "-1": '#0a0a0a', "path_only": '#9b59b6',
+            "3": '#2ecc71', "2": '#f1c40f', "1": '#e74c3c', "0": '#34495e' 
+        };
+        const textColors = { "3": '#000', "2": '#000', "1": '#fff', "0": '#fff', "-1": '#888', "path_only": '#fff' };
+
         let nodes = [];
         function initEmptyMap() {
             nodes = [];
             for (let i = 0; i < 18; i++) {
-                nodes.push({ energy: null, yon: 0 }); 
+                nodes.push({ 
+                    isPath: false,    // Oyuncu burayı yol seçti mi?
+                    energy: null,     // null ise henüz enerji atanmamış demektir
+                    isBlock: false,   // Duvar mı?
+                    yon: 0            // Git-gel yönü (1 veya -1)
+                }); 
             }
         }
 
         function resetSimulation() {
             turn = 1;
+            currentPhase = "path";
             initEmptyMap();
+            
+            const pBtn = document.getElementById('phase_btn');
+            pBtn.innerText = "➡️ Enerji Atama Moduna Geç";
+            pBtn.className = "btn mode-btn";
+            document.getElementById('status_val').innerText = "1. YOL ÇİZİMİ (P)";
+            document.getElementById('status_val').style.color = "#00e5ff";
+            
+            renderMap();
+        }
+
+        // Butona basarak aşama değiştirme
+        function switchPhase() {
+            if (currentPhase === "path") {
+                currentPhase = "energy";
+                const pBtn = document.getElementById('phase_btn');
+                pBtn.innerText = "🚀 Simülasyona Hazır (SPACE bas)";
+                pBtn.className = "btn mode-btn mode-active";
+                document.getElementById('status_val').innerText = "2. ENERJİ ATAMA (P0-P3)";
+                document.getElementById('status_val').style.color = "#2ecc71";
+            }
             renderMap();
         }
 
@@ -103,43 +125,46 @@
             }
             ctx.closePath();
 
-            // Enerji durumuna göre arka plan rengini bas
-            let key = node.energy === null ? "null" : String(node.energy);
-            ctx.fillStyle = colors[key];
+            // Renk Belirleme Mantığı
+            let fillKey = "null";
+            if (node.isBlock) fillKey = "-1";
+            else if (node.isPath) {
+                fillKey = node.energy === null ? "path_only" : String(node.energy);
+            }
+            ctx.fillStyle = colors[fillKey];
             ctx.fill();
 
-            // Genel kontur çizgisi
-            ctx.strokeStyle = node.energy === -1 ? '#555' : '#333';
-            ctx.lineWidth = node.energy === -1 ? 1 : 2;
+            // Kenarlıklar
+            ctx.strokeStyle = node.isBlock ? '#555' : '#333';
+            ctx.lineWidth = 2;
             ctx.setLineDash([]);
             
-            // Eğer aktif bir Player nodu ise ve yönü varsa dinamik çerçeve çiz
-            if (node.energy !== null && node.energy !== -1) {
+            // Simülasyon aşamasında akış yön çizgileri
+            if (currentPhase === "sim" && node.isPath && node.energy !== null) {
                 if (node.yon === 1) {
-                    ctx.strokeStyle = '#00e5ff'; // Yükselen Player'a Cyan çerçeve
-                    ctx.lineWidth = 3;
-                    ctx.setLineDash([4, 4]);
+                    ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 3; ctx.setLineDash([4, 4]);
                 } else if (node.yon === -1) {
-                    ctx.strokeStyle = '#ff9100'; // Eriyen Player'a Turuncu çerçeve
-                    ctx.lineWidth = 3;
-                    ctx.setLineDash([4, 4]);
+                    ctx.strokeStyle = '#ff9100'; ctx.lineWidth = 3; ctx.setLineDash([4, 4]);
                 }
             }
             ctx.stroke();
 
-            // Metin Yazdırma Alanı
+            // Yazı Yazdırma
             ctx.font = 'bold 16px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
-            if (node.energy === -1) {
-                // Block ise 'B' yaz
+            if (node.isBlock) {
                 ctx.fillStyle = textColors["-1"];
                 ctx.fillText("B", x, y);
-            } else if (node.energy !== null) {
-                // Oyuncu ise 'P0, P1, P2, P3' yaz
-                ctx.fillStyle = textColors[String(node.energy)];
-                ctx.fillText("P" + node.energy, x, y);
+            } else if (node.isPath) {
+                if (node.energy === null) {
+                    ctx.fillStyle = textColors["path_only"];
+                    ctx.fillText("P", x, y); // Sadece yol aşamasındayken saf P yazısı
+                } else {
+                    ctx.fillStyle = textColors[String(node.energy)];
+                    ctx.fillText("P" + node.energy, x, y); // Enerji atanınca veya turn esnasında P0, P1...
+                }
             }
         }
 
@@ -155,8 +180,8 @@
             document.getElementById('turn_val').innerText = turn;
         }
 
-        // TIKLAMA MODU (Harita Editörü): Yolu ve tipi belirle
-        canvas.addEventListener('click', (e) => {
+        // TIKLAMA YÖNETİMİ (Aşamalara göre dinamik davranır)
+        function clickCheck(e, isRight) {
             const rect = canvas.getBoundingClientRect();
             const mX = e.clientX - rect.left;
             const mY = e.clientY - rect.top;
@@ -167,75 +192,20 @@
                     if (Math.hypot(mX - x, mY - y) < r * 0.85) {
                         const idx = row * 6 + col;
                         
-                        // Döngüsel Seçim: null (Boş) -> P0 -> P1 -> P2 -> P3 -> B (-1 Block) -> Başa dön (null)
-                        if (nodes[idx].energy === null) {
-                            nodes[idx].energy = 0;
-                            nodes[idx].yon = 1; // Sıfırdan başladığı için ilk yönü yükseliş olsun
-                        } else if (nodes[idx].energy === 0) {
-                            nodes[idx].energy = 1;
-                            nodes[idx].yon = -1; // Ara değerler varsayılan erisin
-                        } else if (nodes[idx].energy === 1) {
-                            nodes[idx].energy = 2;
-                            nodes[idx].yon = -1;
-                        } else if (nodes[idx].energy === 2) {
-                            nodes[idx].energy = 3;
-                            nodes[idx].yon = -1; // 3 olunca bir sonraki turn düşecek
-                        } else if (nodes[idx].energy === 3) {
-                            nodes[idx].energy = -1; // Block moduna geçiş
-                            nodes[idx].yon = 0;
-                        } else if (nodes[idx].energy === -1) {
-                            nodes[idx].energy = null; // Tekrar boş hücre yap
-                            nodes[idx].yon = 0;
+                        // SAĞ TIK: Her aşamada Block koyup kaldırabilir
+                        if (isRight) {
+                            if (currentPhase !== "sim") {
+                                nodes[idx].isBlock = !nodes[idx].isBlock;
+                                if (nodes[idx].isBlock) { nodes[idx].isPath = false; nodes[idx].energy = null; }
+                            }
+                            renderMap();
+                            return;
                         }
-                        
-                        renderMap();
-                        return;
-                    }
-                }
-            }
-        });
 
-        canvas.addEventListener('contextmenu', e => e.preventDefault());
-
-        // --- SIMÜLASYON MOTORU (SPACE & R) ---
-        document.addEventListener('keydown', (e) => {
-            // SPACE BAR: Turn Atlat ve dalgayı simüle et
-            if (e.code === 'Space' || e.keyCode === 32) {
-                e.preventDefault(); 
-                turn++;
-
-                for (let i = 0; i < nodes.length; i++) {
-                    let node = nodes[i];
-
-                    // Boş hücreler (null) veya Engeller (-1) turn akışından etkilenmez!
-                    if (node.energy === null || node.energy === -1) {
-                        continue;
-                    }
-
-                    // Aktif player nodelarının enerjisini yönüne göre değiştir
-                    node.energy += node.yon;
-
-                    // Sınır kontrolleri ve asenkron git-gel hafızası
-                    if (node.energy >= 3) {
-                        node.energy = 3;
-                        node.yon = -1; // Maksimuma ulaşan erimeye başlar
-                    } else if (node.energy <= 0) {
-                        node.energy = 0;
-                        node.yon = 1;  // Sıfıra vuran geri yükselir
-                    }
-                }
-                renderMap();
-            }
-
-            // R TUŞU: Haritayı sıfırla
-            if (e.code === 'KeyR' || e.keyCode === 82) {
-                e.preventDefault();
-                resetSimulation();
-            }
-        });
-
-        // Doğrudan başlatma tetikleyicisi
-        resetSimulation();
-    </script>
-</body>
-</html>
+                        // SOL TIK: Aşamalara göre çalışır
+                        if (currentPhase === "path" && !nodes[idx].isBlock) {
+                            // 1. AŞAMA: Sadece yol (P) çizme/kaldırma
+                            nodes[idx].isPath = !nodes[idx].isPath;
+                            nodes[idx].energy = null; 
+                        } 
+                        else if (currentPhase === "energy" && nodes[idx].isPath
