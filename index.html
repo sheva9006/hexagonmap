@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gel-Git Hexagon Simulator v12.0 (Reset Engine)</title>
+    <title>Gel-Git Hexagon Simulator v12.1 (Fixed Initialization)</title>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .info-panel { font-size: 20px; margin-bottom: 15px; color: #aaa; display: flex; justify-content: center; align-items: center; gap: 20px; }
         
-        /* Sıfırlama Buton Tasarımı */
         .reset-btn {
             background: #e74c3c;
             color: white;
@@ -59,20 +58,17 @@
         const colors = { 3: '#2ecc71', 2: '#f1c40f', 1: '#e74c3c', 0: '#34495e', "-1": '#121212' };
         const textColors = { 3: '#000', 2: '#000', 1: '#fff', 0: '#fff', "-1": '#fff' };
 
-        // İlk fabrikasyon dizilim şablonu (Reset anında buraya bakılacak)
+        // Fabrikasyon dizilim şablonu
         const initialMap = [
             { energy: 3, yon: -1 }, { energy: 2, yon: -1 }, { energy: 1, yon: 1 },  { energy: 0, yon: 1 },  { energy: -1, yon: 0 }, { energy: 2, yon: -1 },
             { energy: 2, yon: -1 }, { energy: -1, yon: 0 }, { energy: 0, yon: 1 },  { energy: 3, yon: -1 }, { energy: 2, yon: -1 }, { energy: 1, yon: -1 },
             { energy: 1, yon: -1 }, { energy: 0, yon: 1 },  { energy: 3, yon: -1 }, { energy: -1, yon: 0 }, { energy: 1, yon: 1 },  { energy: 0, yon: 1 }
         ];
 
-        // Aktif olarak üzerinde oynanan harita dizisi
         let nodes = [];
 
-        // Haritayı derinlemesine kopyalayarak başlatan veya sıfırlayan ana fonksiyon
         function resetSimulation() {
             turn = 1;
-            // Orijinal şablonu bozmamak için elemanları tek tek klonluyoruz
             nodes = initialMap.map(node => ({ ...node }));
             renderMap();
         }
@@ -169,9 +165,7 @@
 
         canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-        // --- KLAVYE DİNLEYİCİSİ (SPACE & R) ---
         document.addEventListener('keydown', (e) => {
-            // SPACE BAR: Turn İlerlet
             if (e.code === 'Space' || e.keyCode === 32) {
                 e.preventDefault(); 
                 turn++;
@@ -197,17 +191,14 @@
                 renderMap();
             }
 
-            // R TUŞU: Turn ve Haritayı Sıfırla
             if (e.code === 'KeyR' || e.keyCode === 82) {
                 e.preventDefault();
                 resetSimulation();
             }
         });
 
-        // İlk açılışta simülasyonu otomatik doldur ve başlat
-        window.onload = function() { 
-            resetSimulation(); 
-        };
+        // HIZLI TETİKLEME: window.onload beklemeden doğrudan kodu çalıştırıyoruz
+        resetSimulation();
     </script>
 </body>
 </html>
