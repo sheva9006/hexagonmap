@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gel-Git Hexagon Simulatoru v3.1 (6x3 Matris)</title>
+    <title>Gel-Git Hexagon Simulator v3.2</title>
     <style>
         body { 
             background: #121212; 
@@ -24,7 +24,6 @@
             border-radius: 12px; 
             margin-top: 20px; 
             cursor: pointer; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
         .legend-area { 
             display: flex; 
@@ -49,20 +48,20 @@
 
     <div class="info-panel">
         Turn: <span id="turn_val" style="color:white; font-weight:bold;">1</span> | 
-        Yön: <span id="dir_val" style="color:#2ecc71; font-weight:bold;">Yükseliş (+1)</span>
+        Yon: <span id="dir_val" style="color:#2ecc71; font-weight:bold;">Yukselis (+1)</span>
     </div>
     
-    <h2>Gel-Git Simülatörü (6 Genişlik x 3 Yükseklik)</h2>
+    <h2>Gel-Git Simulator (6x3 Matrix)</h2>
     
     <canvas id="mainCanvas" width="600" height="320"></canvas>
     
-    <p style="color:#888;">💡 Sol Tık: Enerji Artır | Sağ Tık: Azalt | SPACE (Boşluk): Turn Atla</p>
+    <p style="color:#888;">💡 Sol Tik: Enerji Artir | Sag Tik: Azalt | SPACE: Turn Atla</p>
 
     <div class="legend-area">
-        <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> [3] Güvenli</div>
+        <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> [3] Guvenli</div>
         <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> [2] Stabil</div>
         <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> [1] Kritik</div>
-        <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> [0] Çökmüş</div>
+        <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> [0] Cokmus</div>
         <div class="leg-item"><div class="leg-box" style="background:#121212; border:1px dashed #555"></div> [-1] Duvar</div>
     </div>
 
@@ -71,23 +70,90 @@
         const ctx = canvas.getContext('2d');
 
         let turn = 1;
-        let direction = 1; // +1 ile yükseliş modunda başlar
+        let direction = 1;
 
-        // TAMAMEN DOLU VE GÖRÜNÜR 6x3 MATRİS (18 Eleman)
-        // İlk açılışta boş kalmaması için test sayılarıyla dolduruldu
+        // Tamamen acik ve yuklu 6x3 matris
         let nodes = [
-            3,  2,  1,  0,  3,  2,
-            2,  1,  0,  3,  2,  1,
-            1,  0,  3,  2,  1,  0
+            3, 2, 1, 0, 3, 2,
+            2, 1, 0, 3, 2, 1,
+            1, 0, 3, 2, 1, 0
         ];
 
-        const r = 42; // Altıgen yarıçapı
+        const r = 42; 
         const colors = { 3: '#2ecc71', 2: '#f1c40f', 1: '#e74c3c', 0: '#34495e', "-1": '#121212' };
         const textColors = { 3: '#000', 2: '#000', 1: '#fff', 0: '#fff', "-1": '#fff' };
 
-        // Altıgenlerin merkez koordinatlarını hesaplama fonksiyonu
         function getCenter(col, row) {
             const w = r * Math.sqrt(3);
             const h = r * 2;
             let x = 90 + col * w;
-            if (row % 2 === 1) x += w / 2
+            if (row % 2 === 1) x += w / 2;
+            const y = 70 + row * (h * 3/4);
+            return { x, y };
+        }
+
+        function drawHex(x, y, energy) {
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i + (Math.PI / 6);
+                const hX = x + r * Math.cos(angle);
+                const hY = y + r * Math.sin(angle);
+                if (i === 0) ctx.moveTo(hX, hY);
+                else ctx.lineTo(hX, hY);
+            }
+            ctx.closePath();
+
+            ctx.fillStyle = colors[energy] || '#34495e';
+            ctx.fill();
+
+            ctx.strokeStyle = '#1a1a1a';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([]);
+            ctx.stroke();
+
+            ctx.fillStyle = textColors[energy] || '#fff';
+            ctx.font = 'bold 20px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(energy, x, y);
+        }
+
+        function renderMap() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 6; col++) {
+                    const idx = row * 6 + col;
+                    const { x, y } = getCenter(col, row);
+                    drawHex(x, y, nodes[idx]);
+                }
+            }
+
+            document.getElementById('turn_val').innerText = turn;
+            const dSpan = document.getElementById('dir_val');
+            if (direction > 0) {
+                dSpan.innerText = "Yukselis (+1)";
+                dSpan.style.color = "#2ecc71";
+            } else {
+                dSpan.innerText = "Erime (-1)";
+                dSpan.style.color = "#e74c3c";
+            }
+        }
+
+        function clickCheck(e, isRight) {
+            const rect = canvas.getBoundingClientRect();
+            const mX = e.clientX - rect.left;
+            const mY = e.clientY - rect.top;
+
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 6; col++) {
+                    const { x, y } = getCenter(col, row);
+                    const d = Math.hypot(mX - x, mY - y);
+                    
+                    if (d < r * 0.85) {
+                        const idx = row * 6 + col;
+                        if (isRight) {
+                            if (nodes[idx] === -1) nodes[idx] = 3;
+                            else nodes[idx]--;
+                        } else {
+                            if (nodes[idx] === 3) nodes[idx] =
