@@ -93,36 +93,3 @@
                     nodes.push({ energy: null, yon: 0 }); 
                 }
             }
-
-            function resetSimulation() {
-                turn = 1;
-                isSimulationPhase = false;
-                activeLiveTool = "none";
-                initEmptyMap();
-                updateUI();
-                renderMap();
-            }
-
-            function updateUI() {
-                // Canlı müdahale buton renkleri
-                const btnPlus = document.getElementById('live_plus_btn');
-                const btnMinus = document.getElementById('live_minus_btn');
-                if (btnPlus) btnPlus.className = "btn live-btn" + (activeLiveTool === "plus" ? " live-active-plus" : "");
-                if (btnMinus) btnMinus.className = "btn live-btn" + (activeLiveTool === "minus" ? " live-active-minus" : "");
-
-                // Faz butonu ve durum metinleri güncellemesi
-                const phaseBtn = document.getElementById('phase_toggle_btn');
-                const statusEl = document.getElementById('status_val');
-                const helperEl = document.getElementById('helper_txt');
-
-                if (isSimulationPhase) {
-                    if (phaseBtn) {
-                        phaseBtn.innerText = "🛠 Kurulum Fazına Dön";
-                        phaseBtn.classList.add('phase-sim');
-                    }
-                    if (statusEl) {
-                        statusEl.innerText = "SİMÜLASYON FAZI (Adım Atma)";
-                        statusEl.style.color = "#ff9100";
-                    }
-                    if (helperEl) {
-                        helperEl.innerHTML = "
