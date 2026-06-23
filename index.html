@@ -3,14 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gel-Git Hexagon v3.3</title>
+    <title>Gel-Git Hexagon Simulator v3.4</title>
     <style>
-        body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
-        .info-panel { font-size: 20px; margin-bottom: 10px; color: #aaa; }
-        canvas { background: #1a1a1a; border: 2px solid #333; border-radius: 12px; margin-top: 20px; cursor: pointer; }
-        .legend-area { display: flex; justify-content: center; gap: 15px; margin-top: 20px; font-size: 14px; }
-        .leg-item { display: flex; align-items: center; gap: 5px; }
-        .leg-box { width: 15px; height: 15px; border-radius: 3px; }
+        body { 
+            background: #121212; 
+            color: white; 
+            font-family: sans-serif; 
+            text-align: center; 
+            margin: 0; 
+            padding: 20px; 
+        }
+        .info-panel { 
+            font-size: 20px; 
+            margin-bottom: 10px; 
+            color: #aaa; 
+        }
+        canvas { 
+            background: #1a1a1a; 
+            border: 2px solid #333; 
+            border-radius: 12px; 
+            margin-top: 20px; 
+            cursor: pointer; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .legend-area { 
+            display: flex; 
+            justify-content: center; 
+            gap: 15px; 
+            margin-top: 20px; 
+            font-size: 14px; 
+        }
+        .leg-item { 
+            display: flex; 
+            align-items: center; 
+            gap: 5px; 
+        }
+        .leg-box { 
+            width: 15px; 
+            height: 15px; 
+            border-radius: 3px; 
+        }
     </style>
 </head>
 <body>
@@ -24,7 +56,7 @@
     
     <canvas id="mainCanvas" width="600" height="320"></canvas>
     
-    <p style="color:#888;">💡 Sol Tik: Enerji Artir | Sag Tik: Azalt | SPACE: Turn Atla</p>
+    <p style="color:#888;">💡 Sol Tik: Enerji Artir | Sag Tik: Azalt | SPACE (Bosluk): Turn Atla</p>
 
     <div class="legend-area">
         <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> [3] Guvenli</div>
@@ -106,7 +138,6 @@
             }
         }
 
-        // Tiklama algilayici
         function clickCheck(e, isRight) {
             const rect = canvas.getBoundingClientRect();
             const mX = e.clientX - rect.left;
@@ -133,7 +164,7 @@
         canvas.addEventListener('click', (e) => clickCheck(e, false));
         canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); clickCheck(e, true); });
 
-        // Tarayici odagi her yerden yakalasin diye koruma eklendi
+        // Butun sayfada klavye dinlemesini garanti ediyoruz
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Space' || e.keyCode === 32) {
                 e.preventDefault(); 
@@ -153,7 +184,7 @@
             }
         });
 
-        // Sayfa yuklendigi an cizmeyi garanti et
+        // Sayfa yuklendigi an haritayi cizmeyi tetikle
         window.onload = function() {
             renderMap();
         };
