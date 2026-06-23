@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gel-Git Hexagon Simulator v4.0 (Class Based)</title>
+    <title>Gel-Git Hexagon Simulator v5.0 (reachedZero Memory)</title>
     <style>
         body { 
             background: #121212; 
@@ -52,7 +52,7 @@
         Genel Dalga: <span id="dir_val" style="color:#2ecc71; font-weight:bold;">Yukselis (+1)</span>
     </div>
     
-    <h2>Gel-Git Simulator (6x3 Sınıf Tabanlı Matris)</h2>
+    <h2>Gel-Git Simulator (6x3 Hafızalı Matris)</h2>
     
     <canvas id="mainCanvas" width="600" height="320"></canvas>
     
@@ -63,7 +63,7 @@
         <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> [2] Stabil</div>
         <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> [1] Kritik</div>
         <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> [0] Cokmus</div>
-        <div class="leg-item"><div class="leg-box" style="background:transparent; border: 2px dashed #fff;"></div> [T] Ters Kutuplu Hex</div>
+        <div class="leg-item"><div class="leg-box" style="background:transparent; border: 2px dashed #00e5ff;"></div> [*] Kurtarma Modundaki Hex (reachedZero)</div>
     </div>
 
     <script>
@@ -80,28 +80,47 @@
         // --- NODES/HEXAGON SINIFI ---
         class HexNode {
             constructor(energy, type = 'normal') {
-                this.energy = energy;      // 0, 1, 2, 3
-                this.type = type;          // 'normal' veya 'invert' (Ters akinti)
-                this.isWall = false;       // Engel/Duvar durumu
+                this.energy = energy;         // 0, 1, 2, 3
+                this.type = type;             // 'normal' veya 'invert'
+                this.isWall = false;          // Engel/Duvar durumu
+                this.reachedZero = false;     // SIFIRA ULAŞTI MI HAFIZASI
             }
 
             // Her turn tetiklenen enerji degisim mekanigi
             updateEnergy(waveDir) {
                 if (this.isWall) return;
 
-                // Eger tas TERS ise, ana dalganin tersine hareket eder
+                // EGER SIFIRA VURDUYSA: Hafıza devreye girer, dalgadan bagimsiz ZORLA yukselir
+                if (this.reachedZero) {
+                    this.energy++;
+                    // Maksimuma ulasinca hafiza sifirlanir, normal ritme doner
+                    if (this.energy >= 3) {
+                        this.energy = 3;
+                        this.reachedZero = false;
+                    }
+                    return; // Alttaki normal hesaplamayi atla
+                }
+
+                // NORMAL AKIŞ HESAPLAMASI
                 let localDir = this.type === 'invert' ? -waveDir : waveDir;
-                
                 this.energy = Math.max(0, Math.min(3, this.energy + localDir));
+
+                // KONTROL: Bu adimda sıfıra düştü mü? Düştüyse hafızayı aç
+                if (this.energy === 0) {
+                    this.reachedZero = true;
+                }
             }
         }
 
-        // 6x3 Matrisi Sınıf Örnekleriyle (Object) Dolduruyoruz
+        // 6x3 Matrisi Sınıf Örnekleriyle Başlat
         let nodes = [
             new HexNode(3, 'normal'), new HexNode(2, 'normal'), new HexNode(1, 'invert'), new HexNode(0, 'normal'), new HexNode(3, 'normal'), new HexNode(2, 'invert'),
             new HexNode(2, 'normal'), new HexNode(1, 'invert'), new HexNode(0, 'normal'), new HexNode(3, 'invert'), new HexNode(2, 'normal'), new HexNode(1, 'normal'),
             new HexNode(1, 'invert'), new HexNode(0, 'normal'), new HexNode(3, 'normal'), new HexNode(2, 'normal'), new HexNode(1, 'invert'), new HexNode(0, 'normal')
         ];
+
+        // Haritada baslangicta 0 olanlari reachedZero olarak isaretleyelim ki ilk elden yukselmeye baslasinlar
+        nodes.forEach(n => { if(n.energy === 0) n.reachedZero = true; });
 
         function getCenter(col, row) {
             const w = r * Math.sqrt(3);
@@ -123,19 +142,23 @@
             }
             ctx.closePath();
 
-            // Renk belirleme
             ctx.fillStyle = node.isWall ? colors['wall'] : colors[node.energy];
             ctx.fill();
 
-            // Kontur Çizgisi (Normal ve Ters tasi ayirmak icin)
+            // Kontur Çizgileri
             ctx.strokeStyle = '#1a1a1a';
             ctx.lineWidth = 2;
             ctx.setLineDash([]);
             
-            if (node.type === 'invert' && !node.isWall) {
-                ctx.strokeStyle = '#ffffff'; // Ters taslar beyaz kesikli cizgili olur
+            // reachedZero=true olan taslari fark etmek icin parlak cyan rengi kesikli cizgi yapalim
+            if (node.reachedZero && !node.isWall) {
+                ctx.strokeStyle = '#00e5ff'; 
                 ctx.lineWidth = 3;
-                ctx.setLineDash([6, 4]);
+                ctx.setLineDash([4, 4]);
+            } else if (node.type === 'invert' && !node.isWall) {
+                ctx.strokeStyle = '#ffffff'; 
+                ctx.lineWidth = 2;
+                ctx.setLineDash([8, 4]);
             }
             ctx.stroke();
 
@@ -146,9 +169,10 @@
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 
-                // Ters taslarin basina 'T' harfi koyalim
-                let displayTxt = node.type === 'invert' ? 'T' + node.energy : node.energy;
-                ctx.fillText(displayTxt, x, y);
+                let prefix = node.type === 'invert' ? 'T' : '';
+                // Eger reachedZero aktifse yanina bir yıldız koyalim anlasilsin
+                let suffix = node.reachedZero ? '*' : '';
+                ctx.fillText(prefix + node.energy + suffix, x, y);
             }
         }
 
@@ -172,7 +196,6 @@
             }
         }
 
-        // Fare etkileşimleri ile haritayi manipule etme
         function clickCheck(e, isRight) {
             const rect = canvas.getBoundingClientRect();
             const mX = e.clientX - rect.left;
@@ -185,11 +208,11 @@
                         const idx = row * 6 + col;
                         
                         if (isRight) {
-                            // Sag tiklama: Tipi degistirir (Normal -> Invert -> Normal)
                             nodes[idx].type = nodes[idx].type === 'normal' ? 'invert' : 'normal';
                         } else {
-                            // Sol tiklama: Enerjiyi artirir, 3'ten sonra 0'a doner
                             nodes[idx].energy = (nodes[idx].energy + 1) % 4;
+                            // Manuel 0 yapildiysa hafizayi tetikle, degilse kapat
+                            nodes[idx].reachedZero = (nodes[idx].energy === 0);
                         }
                         renderMap();
                         return;
@@ -207,16 +230,15 @@
                 e.preventDefault(); 
                 turn++;
 
-                // Sınıf metodu yardımıyla her node'u kendi kuralına göre güncelle
+                // Sınıf metodu yardımıyla her node'u güncelle
                 nodes.forEach(node => node.updateEnergy(globalDirection));
 
-                // Global dalga yönünü belirleme kuralları (Tüm haritaya göre)
+                // Global dalga yönünü belirleme kuralları
                 let activeNodes = nodes.filter(n => !n.isWall);
                 if (activeNodes.length > 0) {
                     let maxEnergy = Math.max(...activeNodes.map(n => n.energy));
                     let minEnergy = Math.min(...activeNodes.map(n => n.energy));
 
-                    // Tetikleyiciler: Her yer son raddeye ulaştığında yön kırılır
                     if (maxEnergy === 0) globalDirection = 1;
                     else if (minEnergy === 3) globalDirection = -1;
                 }
