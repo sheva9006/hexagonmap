@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gel-Git Hexagon Simulatoru v2.1 (Sorunsuz Dongu)</title>
+    <style>
+        body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
+        canvas { background: #1a1a1a; border: 2px solid #333; border-radius: 12px; margin-top: 20px; cursor: pointer; }
+        .info-panel { font-size: 20px; margin-bottom: 10px; color: #aaa; }
+        .legend-area { display: flex; justify-content: center; gap: 15px; margin-top: 20px; font-size: 14px; }
+        .leg-item { display: flex; align-items: center; gap: 5px; }
+        .leg-box { width: 15px; height: 15px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+    <div class="info-panel">
+        Turn: <span id="turn_val" style="color:white; font-weight:bold;">1</span> | 
+        Yon: <span id="dir_val" style="color:#2ecc71; font-weight:bold;">Yukselis (+1)</span>
+    </div>
+    
+    <h2>Gel-Git Sorunsuz Dongu Simulatoru (6x6)</h2>
+    
+    <canvas id="mainCanvas" width="600" height="520"></canvas>
+    
+    <p style="color:#888;">💡 Sol Tik: Enerji Artir | Sag Tik: Azalt | SPACE (Bosluk): Turn Atla</p>
+
+    <div class="legend-area">
+        <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> [3] Guvenli</div>
+        <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> [2] Stabil</div>
+        <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> [1] Kritik</div>
+        <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> [0] Cokmus</div>
+        <div class="leg-item"><div class="leg-box" style="background:#121212; border:1px dashed #555"></div> [-1] Duvar</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let turn = 1;
+        let direction = -1; // İlk basışta erime başlasın diye varsayılanı değiştirdik
+        
+        let nodes = [
+            -1, -1, -1, -1, -1, -1,
+            -1,  3,  2,  1,  0, -1,
+            -1,  2,  1,  1,  1, -1,
+            -1,  1,  2,  3,  2, -1,
+            -1,  0,  1,  2,  3, -1,
+            -1, -1, -1, -1, -1, -1
+        ];
+
+        const r = 42; 
+        const colors = { 3: '#2ecc71', 2: '#f1c40f', 1: '#e74c3c', 0: '#34495e', "-1": '#121212' };
+        const textColors = { 3: '#000', 2: '#000', 1: '#fff', 0: '#fff', "-1": '#fff' };
+
+        function getCenter(col, row) {
+            const w = r * Math.sqrt(3);
+            const h = r * 2;
+            let x = 90 + col * w;
+            if (row % 2 === 1) x += w / 2;
+            const y = 70 + row * (h * 3/4);
+            return { x, y };
+        }
+
+        function drawHex(x, y, energy) {
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i + (Math.PI / 6);
+                const hX = x + r * Math.cos(angle);
+                const hY = y + r * Math.sin(angle);
+                if (i === 0) ctx.moveTo(hX, hY);
+                else ctx.lineTo(hX, hY);
+            }
+            ctx.closePath();
+
+            ctx.fillStyle = colors[energy];
+            ctx.fill();
+
+            if (energy === -1) {
+                ctx.strokeStyle = '#444';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+            } else {
+                ctx.strokeStyle = '#1a1a1a';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([]);
+                ctx.stroke();
+
+                ctx.fillStyle = textColors[energy];
+                ctx.font = 'bold 20px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(energy, x, y);
+            }
+        }
+
+        function renderMap() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let row = 0; row < 6; row++) {
+                for (let col = 0; col < 6; col++) {
+                    const idx = row * 6 + col;
+                    const { x, y } = getCenter(col, row);
+                    drawHex(x, y, nodes[idx]);
+                }
+            }
+            document.getElementById('turn_val').innerText = turn;
+            const dSpan = document.getElementById('dir_val');
+            if (direction > 0) {
+                dSpan.innerText = "Yukselis (+1)";
+                dSpan.style.color = "#2ecc71";
+            } else {
+                dSpan.innerText = "Erime (-1)";
+                dSpan.style.color = "#e74c3c";
+            }
+        }
+
+        function clickCheck(e, isRight) {
+            const rect = canvas.getBoundingClientRect();
