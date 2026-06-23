@@ -34,19 +34,11 @@
         <button class="reset-btn" onclick="resetSimulation()">🔄 Turn Sıfırla (R)</button>
     </div>
     
-    <h2>Gel-Git Simulator (Sıfırlanabilir Matris)</h2>
+    <h2>Level Designer Helper</h2>
     
     <canvas id="mainCanvas" width="600" height="320"></canvas>
     
-    <p style="color:#888;">💡 SPACE: Turn Atla | R veya Buton: Turn Sıfırla | Tıkla: Hücre Değiştir</p>
-
-    <div class="legend-area">
-        <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> [3] Guvenli</div>
-        <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> [2] Stabil</div>
-        <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> [1] Kritik</div>
-        <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> [0] Cokmus</div>
-        <div class="leg-item"><div class="leg-box" style="background:#121212; border: 1px dashed #555;"></div> [-1] Block / Duvar</div>
-    </div>
+    <p style="color:#888;">💡 SPACE: Next Turn | R: Reset Turn | Click: Change Energy</p>
 
     <script>
         const canvas = document.getElementById('mainCanvas');
