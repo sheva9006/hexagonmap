@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gel-Git Hexagon Simulator v22.0 (Instant Render)</title>
+    <title>Gel-Git Hexagon Simulator v23.0 (Border Fix)</title>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .info-panel { font-size: 18px; margin-bottom: 15px; color: #aaa; display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -52,4 +52,69 @@
         <button id="reset_btn" class="reset-btn btn">🔄 Sıfırla</button>
     </div>
     
-    <h2>Gel-Git Simulator (Zamanlamasız Doğrudan Çizim)</h2>
+    <h2>Gel-Git Simulator (Border Fix)</h2>
+    
+    <canvas id="mainCanvas" width="600" height="320"></canvas>
+    
+    <p style="color:#aaa;" id="helper_txt">💡 <b>Kullanım:</b> Hücrelere tıklayarak eski usul sırayla enerjileri (0-3) veya engeli (B) yerleştir.</p>
+
+    <div class="legend-area">
+        <div class="leg-item"><div class="leg-box" style="background:#1e1e1e; border:1px solid #333;"></div> Boş Alan</div>
+        <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> [3] Güvenli</div>
+        <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> [2] Stabil</div>
+        <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> [1] Kritik</div>
+        <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> [0] Çökmüş</div>
+        <div class="leg-item"><div class="leg-box" style="background:#0a0a0a; border:1px dashed #555;"></div> [B] Block / Engel</div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let turn = 1;
+        const r = 42; 
+        let isSimulationPhase = false; 
+        let activeLiveTool = "none"; 
+
+        const colors = { 
+            "null": '#1e1e1e', "-1": '#0a0a0a',
+            "3": '#2ecc71', "2": '#f1c40f', "1": '#e74c3c', "0": '#34495e' 
+        };
+        const textColors = { "3": '#000', "2": '#000', "1": '#fff', "0": '#fff', "-1": '#888' };
+        let nodes = [];
+
+        function initEmptyMap() {
+            nodes = [];
+            for (let i = 0; i < 18; i++) {
+                nodes.push({ energy: null, yon: 0 }); 
+            }
+        }
+
+        function updateUI() {
+            const btnPlus = document.getElementById('live_plus_btn');
+            const btnMinus = document.getElementById('live_minus_btn');
+            if (btnPlus) btnPlus.className = "btn live-btn" + (activeLiveTool === "plus" ? " live-active-plus" : "");
+            if (btnMinus) btnMinus.className = "btn live-btn" + (activeLiveTool === "minus" ? " live-active-minus" : "");
+
+            const phaseBtn = document.getElementById('phase_toggle_btn');
+            const statusEl = document.getElementById('status_val');
+            const helperEl = document.getElementById('helper_txt');
+
+            if (isSimulationPhase) {
+                if (phaseBtn) {
+                    phaseBtn.innerText = "🛠 Kurulum Fazına Dön";
+                    phaseBtn.classList.add('phase-sim');
+                }
+                if (statusEl) {
+                    statusEl.innerText = "SİMÜLASYON FAZI (Adım Atma)";
+                    statusEl.style.color = "#ff9100";
+                }
+                if (helperEl) {
+                    helperEl.innerHTML = "🏃‍♂️ <b>Sıra Oyuncuda:</b> Haritada bastığın hücre sabit kalır, diğer tüm hücreler dalgalanır ve turn ilerler.";
+                }
+            } else {
+                if (phaseBtn) {
+                    phaseBtn.innerText = "▶ Simülasyon Fazına Geç";
+                    phaseBtn.classList.remove('phase-sim');
+                }
+                if (statusEl) {
