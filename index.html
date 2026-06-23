@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gel-Git Hexagon Simulator v7.0 (Universal Memory)</title>
+    <title>Gel-Git Hexagon Simulator v8.0 (Pure Universal)</title>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .info-panel { font-size: 20px; margin-bottom: 10px; color: #aaa; }
@@ -16,23 +16,22 @@
 <body>
 
     <div class="info-panel">
-        Turn: <span id="turn_val" style="color:white; font-weight:bold;">1</span> | 
-        Genel Dalga: <span id="dir_val" style="color:#2ecc71; font-weight:bold;">Yukselis (+1)</span>
+        Turn: <span id="turn_val" style="color:white; font-weight:bold;">1</span>
     </div>
     
-    <h2>Gel-Git Simulator (Evrensel Hafızalı Matris)</h2>
+    <h2>Gel-Git Simulator (Eşit Kural Tabanlı Matris)</h2>
     
     <canvas id="mainCanvas" width="600" height="320"></canvas>
     
-    <p style="color:#888;">💡 Sol Tik: Enerji Artir | Sag Tik: Tipi Degistir | SPACE: Turn Atla</p>
+    <p style="color:#888;">💡 Sol Tik: Enerjiyi Değiştir (0-3) | SPACE (Boşluk): Turn Atla</p>
 
     <div class="legend-area">
         <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> [3] Guvenli</div>
         <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> [2] Stabil</div>
         <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> [1] Kritik</div>
         <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> [0] Cokmus</div>
-        <div class="leg-item"><div class="leg-box" style="background:transparent; border: 2px dashed #00e5ff;"></div> [*] Yukselme Hafizasi (reachedZero)</div>
-        <div class="leg-item"><div class="leg-box" style="background:transparent; border: 2px dashed #ff9100;"></div> [-] Erime Hafizasi (reachedThree)</div>
+        <div class="leg-item"><div class="leg-box" style="background:transparent; border: 2px dashed #00e5ff;"></div> ⬆️ Kendi Kendine Yükselen Mod (* )</div>
+        <div class="leg-item"><div class="leg-box" style="background:transparent; border: 2px dashed #ff9100;"></div> ⬇️ Kendi Kendine Eriyen Mod (- )</div>
     </div>
 
     <script>
@@ -40,54 +39,51 @@
         const ctx = canvas.getContext('2d');
 
         let turn = 1;
-        let globalDirection = 1; 
-
         const r = 42; 
+        
         const colors = { 3: '#2ecc71', 2: '#f1c40f', 1: '#e74c3c', 0: '#34495e', "wall": '#121212' };
         const textColors = { 3: '#000', 2: '#000', 1: '#fff', 0: '#fff', "wall": '#fff' };
 
-        // --- NODES/HEXAGON SINIFI ---
+        // --- TEK VE EVRENSEL HEXAGON SINIFI ---
         class HexNode {
-            constructor(energy, type = 'normal') {
+            constructor(energy, startState = 'none') {
                 this.energy = energy;         
-                this.type = type;             
                 this.isWall = false;          
-                this.reachedZero = false;   // 0'a ulasinca zorla yukselme flag'i
-                this.reachedThree = false;  // 3'e ulasinca zorla erime flag'i
-                this.nextDirection = 0;     // Tur basinda kesinlesecek hareket emri
+                this.reachedZero = (startState === 'rising' || energy === 0);   
+                this.reachedThree = (startState === 'sinking' || energy === 3);  
+                this.nextDirection = 0;     
             }
 
-            // 1. AŞAMA: TUR BAŞINDA KARAR VERME (Tüm taşlar için evrenseldir)
-            calculateNextMove(waveDir) {
+            // TUR BAŞINDA HER TAŞ KENDİ BAŞINA KARAR VERİR
+            calculateNextMove() {
                 if (this.isWall) {
                     this.nextDirection = 0;
                     return;
                 }
 
-                // KURAL 1: Eger tas sifira vurduysa, 3 olana kadar zorla YUKSELİR (+1)
+                // 1. Sıfıra vuran taş 3 olana kadar zorla yükselir
                 if (this.reachedZero) {
                     this.nextDirection = 1;
                     return;
                 }
 
-                // KURAL 2: Eger tas uce vurduysa, 0 olana kadar zorla ERİR (-1)
+                // 2. Üçe vuran taş 0 olana kadar zorla erir
                 if (this.reachedThree) {
                     this.nextDirection = -1;
                     return;
                 }
 
-                // KURAL 3: Sınırlarda degilse kendi dogasina gore hareket eder
-                this.nextDirection = this.type === 'invert' ? -waveDir : waveDir;
+                // 3. Eğer ilk el açılışında arada bir değerdeyse varsayılan olarak erimeye başlasın
+                this.nextDirection = -1;
             }
 
-            // 2. AŞAMA: EMRE GÖRE HAREKET ETME VE HAFIZA GÜNCELLEME
+            // HAREKETİ UYGULA VE SINIRLARI KAYDET
             applyMove() {
                 if (this.isWall) return;
 
-                // Emredilen hareketi uygula
                 this.energy = Math.max(0, Math.min(3, this.energy + this.nextDirection));
 
-                // Sınırlara ulasma durumuna gore hafiza durumlarini guncelle
+                // Sınır kontrolleri hafızayı günceller
                 if (this.energy === 0) {
                     this.reachedZero = true;
                     this.reachedThree = false;
@@ -98,18 +94,13 @@
             }
         }
 
-        // 6x3 Baslangic Haritasi
+        // 6x3 Eşit Kurallı Başlangıç Matrisi
+        // İkinci parametre ile bazılarını baştan 'rising' (yükselen) veya 'sinking' (eriyen) yapabiliriz
         let nodes = [
-            new HexNode(3, 'normal'), new HexNode(2, 'normal'), new HexNode(1, 'invert'), new HexNode(0, 'normal'), new HexNode(3, 'normal'), new HexNode(2, 'invert'),
-            new HexNode(2, 'normal'), new HexNode(1, 'invert'), new HexNode(0, 'normal'), new HexNode(3, 'invert'), new HexNode(2, 'normal'), new HexNode(1, 'normal'),
-            new HexNode(1, 'invert'), new HexNode(0, 'normal'), new HexNode(3, 'normal'), new HexNode(2, 'normal'), new HexNode(1, 'invert'), new HexNode(0, 'normal')
+            new HexNode(3), new HexNode(2), new HexNode(1, 'rising'), new HexNode(0), new HexNode(3), new HexNode(2),
+            new HexNode(2), new HexNode(1, 'rising'), new HexNode(0), new HexNode(3), new HexNode(2), new HexNode(1),
+            new HexNode(1, 'rising'), new HexNode(0), new HexNode(3), new HexNode(2), new HexNode(1, 'rising'), new HexNode(0)
         ];
-
-        // İlk acilista sinira dayanmis olanlarin hafizalarini tetikleyelim
-        nodes.forEach(n => { 
-            if(n.energy === 0) n.reachedZero = true;
-            if(n.energy === 3) n.reachedThree = true;
-        });
 
         function getCenter(col, row) {
             const w = r * Math.sqrt(3);
@@ -135,19 +126,15 @@
             ctx.lineWidth = 2;
             ctx.setLineDash([]);
             
-            // Hafiza durumlarina gore dis halkalari renklendirerek takip edelim
+            // Yön ve hafıza durumunu halkanın renginden şak diye anlıyoruz
             if (node.reachedZero && !node.isWall) {
-                ctx.strokeStyle = '#00e5ff'; // Yukselme modundakiler parlak cyan kesikli cizgi
+                ctx.strokeStyle = '#00e5ff'; // Yükselenler Cyan kesikli halka
                 ctx.lineWidth = 3;
                 ctx.setLineDash([4, 4]);
             } else if (node.reachedThree && !node.isWall) {
-                ctx.strokeStyle = '#ff9100'; // Erime modundakiler parlak turuncu kesikli cizgi
+                ctx.strokeStyle = '#ff9100'; // Eriyenler Turuncu kesikli halka
                 ctx.lineWidth = 3;
                 ctx.setLineDash([4, 4]);
-            } else if (node.type === 'invert' && !node.isWall) {
-                ctx.strokeStyle = '#ffffff'; 
-                ctx.lineWidth = 2;
-                ctx.setLineDash([8, 4]);
             }
             ctx.stroke();
 
@@ -157,12 +144,11 @@
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 
-                let prefix = node.type === 'invert' ? 'T' : '';
                 let suffix = '';
                 if (node.reachedZero) suffix = '*';
                 if (node.reachedThree) suffix = '-';
                 
-                ctx.fillText(prefix + node.energy + suffix, x, y);
+                ctx.fillText(node.energy + suffix, x, y);
             }
         }
 
@@ -176,17 +162,9 @@
                 }
             }
             document.getElementById('turn_val').innerText = turn;
-            const dSpan = document.getElementById('dir_val');
-            if (globalDirection > 0) {
-                dSpan.innerText = "Yukselis (+1)";
-                dSpan.style.color = "#2ecc71";
-            } else {
-                dSpan.innerText = "Erime (-1)";
-                dSpan.style.color = "#e74c3c";
-            }
         }
 
-        function clickCheck(e, isRight) {
+        function clickCheck(e) {
             const rect = canvas.getBoundingClientRect();
             const mX = e.clientX - rect.left;
             const mY = e.clientY - rect.top;
@@ -196,14 +174,10 @@
                     const { x, y } = getCenter(col, row);
                     if (Math.hypot(mX - x, mY - y) < r * 0.85) {
                         const idx = row * 6 + col;
-                        if (isRight) {
-                            nodes[idx].type = nodes[idx].type === 'normal' ? 'invert' : 'normal';
-                        } else {
-                            nodes[idx].energy = (nodes[idx].energy + 1) % 4;
-                            // Elle tiklandiginda hafizalari resetleyip duruma gore atayalim
-                            nodes[idx].reachedZero = (nodes[idx].energy === 0);
-                            nodes[idx].reachedThree = (nodes[idx].energy === 3);
-                        }
+                        // Sol tık enerjiyi döngüsel değiştirir ve hafızayı günceller
+                        nodes[idx].energy = (nodes[idx].energy + 1) % 4;
+                        nodes[idx].reachedZero = (nodes[idx].energy === 0);
+                        nodes[idx].reachedThree = (nodes[idx].energy === 3);
                         renderMap();
                         return;
                     }
@@ -211,8 +185,8 @@
             }
         }
 
-        canvas.addEventListener('click', (e) => clickCheck(e, false));
-        canvas.addEventListener('contextmenu', (e) => { e.preventDefault(); clickCheck(e, true); });
+        canvas.addEventListener('click', clickCheck);
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault()); // Sağ tıkı kapattık, karmaşa bitti
 
         // --- GEL-GİT OYUN DÖNGÜSÜ (SPACE) ---
         document.addEventListener('keydown', (e) => {
@@ -220,27 +194,4 @@
                 e.preventDefault(); 
                 turn++;
 
-                // AŞAMA 1: Tur basinda HER TAS icin yonu hesapla ve hafizaya kilitle
-                nodes.forEach(node => node.calculateNextMove(globalDirection));
-
-                // AŞAMA 2: Karar uygulansin
-                nodes.forEach(node => node.applyMove());
-
-                // AŞAMA 3: Global dalgayi kontrol et (Ileride bu sistem tamamen kalkabilir de)
-                let activeNodes = nodes.filter(n => !n.isWall);
-                if (activeNodes.length > 0) {
-                    let maxEnergy = Math.max(...activeNodes.map(n => n.energy));
-                    let minEnergy = Math.min(...activeNodes.map(n => n.energy));
-                    if (maxEnergy === 0) globalDirection = 1;
-                    else if (minEnergy === 3) globalDirection = -1;
-                }
-
-                renderMap();
-            }
-        });
-
-        window.onload = function() { renderMap(); };
-        renderMap();
-    </script>
-</body>
-</html>
+                // AŞAMA 1: Tur başında her
