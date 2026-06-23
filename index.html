@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gel-Git Hexagon Simulator v21.0 (Phase Control)</title>
+    <title>Gel-Git Hexagon Simulator v22.0 (Instant Render)</title>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .info-panel { font-size: 18px; margin-bottom: 15px; color: #aaa; display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -23,15 +23,13 @@
         .live-active-plus { background: #2ecc71 !important; color: black; box-shadow: 0 0 8px #2ecc71; }
         .live-active-minus { background: #e74c3c !important; color: white; box-shadow: 0 0 8px #e74c3c; }
 
-        canvas { 
+        #mainCanvas { 
             background: #1a1a1a; 
             border: 2px solid #333; 
             border-radius: 12px; 
             margin-top: 10px; 
             cursor: pointer; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            width: 600px; 
-            height: 320px;
             display: inline-block;
         }
         .legend-area { display: flex; justify-content: center; gap: 15px; margin-top: 20px; font-size: 14px; }
@@ -54,42 +52,4 @@
         <button id="reset_btn" class="reset-btn btn">🔄 Sıfırla</button>
     </div>
     
-    <h2>Gel-Git Simulator (Faz Kontrollü Versiyon)</h2>
-    
-    <canvas id="mainCanvas" width="600" height="320"></canvas>
-    
-    <p style="color:#aaa;" id="helper_txt">💡 <b>Kullanım:</b> Hücrelere tıklayarak enerjileri (0-3) veya engeli (B) yerleştir.</p>
-
-    <div class="legend-area">
-        <div class="leg-item"><div class="leg-box" style="background:#1e1e1e; border:1px solid #333;"></div> Boş Alan</div>
-        <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> [3] Güvenli</div>
-        <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> [2] Stabil</div>
-        <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> [1] Kritik</div>
-        <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> [0] Çökmüş</div>
-        <div class="leg-item"><div class="leg-box" style="background:#0a0a0a; border:1px dashed #555;"></div> [B] Block / Engel</div>
-    </div>
-
-    <script>
-        window.addEventListener('load', () => {
-            const canvas = document.getElementById('mainCanvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-
-            let turn = 1;
-            const r = 42; 
-            let isSimulationPhase = false; // False = Kurulum, True = Simülasyon
-            let activeLiveTool = "none"; 
-
-            const colors = { 
-                "null": '#1e1e1e', "-1": '#0a0a0a',
-                "3": '#2ecc71', "2": '#f1c40f', "1": '#e74c3c', "0": '#34495e' 
-            };
-            const textColors = { "3": '#000', "2": '#000', "1": '#fff', "0": '#fff', "-1": '#888' };
-            let nodes = [];
-
-            function initEmptyMap() {
-                nodes = [];
-                for (let i = 0; i < 18; i++) {
-                    nodes.push({ energy: null, yon: 0 }); 
-                }
-            }
+    <h2>Gel-Git Simulator (Zamanlamasız Doğrudan Çizim)</h2>
