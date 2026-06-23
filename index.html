@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gel-Git Hexagon Simulator v17.0 (Pure Energy & Live Tools)</title>
+    <title>Gel-Git Hexagon Simulator v17.1 (Ultra Stable)</title>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .info-panel { font-size: 18px; margin-bottom: 15px; color: #aaa; display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -61,8 +61,8 @@
         let turn = 1;
         const r = 42; 
         
-        let isSimulationRunning = false; // Turn başladı mı?
-        let activeLiveTool = "none"; // none, plus, minus
+        let isSimulationRunning = false; 
+        let activeLiveTool = "none"; 
 
         const colors = { 
             "null": '#1e1e1e', "-1": '#0a0a0a',
@@ -74,7 +74,7 @@
         function initEmptyMap() {
             nodes = [];
             for (let i = 0; i < 18; i++) {
-                nodes.push({ energy: null, yon: 0 }); // null = boş, -1 = block, 0-3 = enerji seviyeleri
+                nodes.push({ energy: null, yon: 0 }); 
             }
         }
 
@@ -85,8 +85,11 @@
             initEmptyMap();
             updateLiveToolUI();
             
-            document.getElementById('status_val').innerText = "KURULUM (Enerji Atama)";
-            document.getElementById('status_val').style.color = "#00e5ff";
+            const statusEl = document.getElementById('status_val');
+            if(statusEl) {
+                statusEl.innerText = "KURULUM (Enerji Atama)";
+                statusEl.style.color = "#00e5ff";
+            }
             
             renderMap();
         }
@@ -98,8 +101,10 @@
         }
 
         function updateLiveToolUI() {
-            document.getElementById('live_plus_btn').className = "btn live-btn" + (activeLiveTool === "plus" ? " live-active-plus" : "");
-            document.getElementById('live_minus_btn').className = "btn live-btn" + (activeLiveTool === "minus" ? " live-active-minus" : "");
+            const btnPlus = document.getElementById('live_plus_btn');
+            const btnMinus = document.getElementById('live_minus_btn');
+            if(btnPlus) btnPlus.className = "btn live-btn" + (activeLiveTool === "plus" ? " live-active-plus" : "");
+            if(btnMinus) btnMinus.className = "btn live-btn" + (activeLiveTool === "minus" ? " live-active-minus" : "");
         }
 
         function getCenter(col, row) {
@@ -113,4 +118,24 @@
 
         function drawHex(x, y, node) {
             ctx.beginPath();
-            for (let i =
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i + (Math.PI / 6);
+                const hX = x + r * Math.cos(angle);
+                const hY = y + r * Math.sin(angle);
+                if (i === 0) ctx.moveTo(hX, hY);
+                else ctx.lineTo(hX, hY);
+            }
+            ctx.closePath();
+
+            let fillKey = node.energy === null ? "null" : String(node.energy);
+            ctx.fillStyle = colors[fillKey] || colors["null"];
+            ctx.fill();
+
+            ctx.strokeStyle = node.energy === -1 ? '#555' : '#333';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([]);
+            
+            if (isSimulationRunning && node.energy !== null && node.energy !== -1) {
+                if (node.yon === 1) {
+                    ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 3; ctx.setLineDash([4, 4]);
+                } else if (node.yon ===
