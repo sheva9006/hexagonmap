@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gel-Git Hexagon Simulator v18.2 (Render Guaranteed)</title>
+    <title>Gel-Git Hexagon Simulator v19.0 (Player Steps)</title>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .info-panel { font-size: 18px; margin-bottom: 15px; color: #aaa; display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -19,7 +19,6 @@
         .live-active-plus { background: #2ecc71 !important; color: black; box-shadow: 0 0 8px #2ecc71; }
         .live-active-minus { background: #e74c3c !important; color: white; box-shadow: 0 0 8px #e74c3c; }
 
-        /* CRITICAL FIXED: Canvas boyutları CSS ile tarayıcıya zorla dikte ettirildi */
         canvas { 
             background: #1a1a1a; 
             border: 2px solid #333; 
@@ -49,23 +48,22 @@
         <button id="reset_btn" class="reset-btn btn">🔄 Sıfırla (R)</button>
     </div>
     
-    <h2>Gel-Git Simulator (Sadece Saf Enerji Değerleri)</h2>
+    <h2>Gel-Git Simulator (Oyuncu Hareketiyle Turn Atlama)</h2>
     
     <canvas id="mainCanvas" width="600" height="320"></canvas>
     
-    <p style="color:#888;">💡 <b>Kullanım:</b> Tıklayarak doğrudan sayısal enerjileri (0-3) veya Engeli (B) yerleştir. | <b>SPACE:</b> Turn Atlat</p>
+    <p style="color:#888;" id="helper_txt">💡 <b>Kullanım:</b> Kurulum bittikten sonra <b>SPACE</b>'e basarak simülasyonu başlat.</p>
 
     <div class="legend-area">
         <div class="leg-item"><div class="leg-box" style="background:#1e1e1e; border:1px solid #333;"></div> Boş Alan</div>
-        <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> [3] Güvenli Seviye</div>
-        <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> [2] Stabil Seviye</div>
-        <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> [1] Kritik Seviye</div>
-        <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> [0] Çökmüş Seviye</div>
+        <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> [3] Güvenli</div>
+        <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> [2] Stabil</div>
+        <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> [1] Kritik</div>
+        <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> [0] Çökmüş</div>
         <div class="leg-item"><div class="leg-box" style="background:#0a0a0a; border:1px dashed #555;"></div> [B] Block / Engel</div>
     </div>
 
     <script>
-        // Sayfa tamamen hazır olunca kodu koştur
         window.addEventListener('load', () => {
             const canvas = document.getElementById('mainCanvas');
             if (!canvas) return;
@@ -101,6 +99,10 @@
                 if (statusEl) {
                     statusEl.innerText = "KURULUM (Enerji Atama)";
                     statusEl.style.color = "#00e5ff";
+                }
+                const helperEl = document.getElementById('helper_txt');
+                if (helperEl) {
+                    helperEl.innerHTML = "💡 <b>Kullanım:</b> Hücrelere tıklayarak enerjileri ata. Hazır olunca <b>SPACE</b>'e basarak simülasyonu başlat.";
                 }
                 renderMap();
             }
@@ -177,9 +179,27 @@
                 if (turnValEl) turnValEl.innerText = turn;
             }
 
+            // ANA SIMÜLASYON TETIKLEYICISI (Turn İlerletme Mantığı)
+            function advanceTurn(steppedNodeIndex) {
+                turn++;
+                for (let i = 0; i < nodes.length; i++) {
+                    let node = nodes[i];
+                    if (node.energy === null || node.energy === -1) continue;
+
+                    // KRITIK GÜNCELLEME: Eğer tıklandığımız (adım attığımız) node ise enerjisi DEĞİŞMEZ!
+                    if (i === steppedNodeIndex) continue;
+
+                    // Diğer tüm nodelar normal git-gel dalgasına devam eder
+                    node.energy += node.yon;
+
+                    if (node.energy >= 3) { node.energy = 3; node.yon = -1; }
+                    else if (node.energy <= 0) { node.energy = 0; node.yon = 1; }
+                }
+                renderMap();
+            }
+
             canvas.addEventListener('click', (e) => {
                 const rect = canvas.getBoundingClientRect();
-                // Tıklama oranlarını css scale farkından arındırıyoruz
                 const mX = (e.clientX - rect.left) * (canvas.width / rect.width);
                 const mY = (e.clientY - rect.top) * (canvas.height / rect.height);
 
@@ -190,6 +210,7 @@
                             const idx = row * 6 + col;
                             if (!nodes[idx]) return;
                             
+                            // 1. CANLI MÜDAHALE MODU (Goril / İdol vb. için)
                             if (activeLiveTool === "plus" && nodes[idx].energy !== null && nodes[idx].energy !== -1) {
                                 nodes[idx].energy = Math.min(3, nodes[idx].energy + 1);
                                 if (nodes[idx].energy === 3) nodes[idx].yon = -1;
@@ -202,6 +223,16 @@
                                 return;
                             }
 
+                            // 2. SİMÜLASYONDA ADIM ATMA MODU (Turn İlerletme)
+                            if (isSimulationRunning && activeLiveTool === "none") {
+                                // Sadece aktif bir yola/enerjiye basıldıysa turn tetiklenir
+                                if (nodes[idx].energy !== null && nodes[idx].energy !== -1) {
+                                    advanceTurn(idx);
+                                }
+                                return;
+                            }
+
+                            // 3. KURULUM MODU TIKLAMALARI
                             if (!isSimulationRunning && activeLiveTool === "none") {
                                 if (nodes[idx].energy === null) { nodes[idx].energy = 0; nodes[idx].yon = 1; }
                                 else if (nodes[idx].energy === 0) { nodes[idx].energy = 1; nodes[idx].yon = -1; }
@@ -238,19 +269,15 @@
                         isSimulationRunning = true;
                         const statusEl = document.getElementById('status_val');
                         if (statusEl) {
-                            statusEl.innerText = "SİMÜLASYON AKIYOR (Turn Modu)";
+                            statusEl.innerText = "OYUN AKIYOR (Adım Atma Modu)";
                             statusEl.style.color = "#ff9100";
                         }
+                        const helperEl = document.getElementById('helper_txt');
+                        if (helperEl) {
+                            helperEl.innerHTML = "🏃‍♂️ <b>Turn İlerletmek İçin:</b> Haritada oyuncunun bastığı / ilerlediği altıgene sol tıkla! Bastığın yer korunur, diğer yerler akışa uğrar.";
+                        }
+                        renderMap();
                     }
-                    turn++;
-                    for (let i = 0; i < nodes.length; i++) {
-                        let node = nodes[i];
-                        if (node.energy === null || node.energy === -1) continue;
-                        node.energy += node.yon;
-                        if (node.energy >= 3) { node.energy = 3; node.yon = -1; }
-                        else if (node.energy <= 0) { node.energy = 0; node.yon = 1; }
-                    }
-                    renderMap();
                 }
                 if (e.code === 'KeyR' || e.keyCode === 82) {
                     e.preventDefault();
