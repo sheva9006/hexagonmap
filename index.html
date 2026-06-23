@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gel-Git Hexagon Simulator v8.0 (Pure Universal)</title>
+    <title>Gel-Git Hexagon Simulator v9.0 (Clean View)</title>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .info-panel { font-size: 20px; margin-bottom: 10px; color: #aaa; }
@@ -19,7 +19,7 @@
         Turn: <span id="turn_val" style="color:white; font-weight:bold;">1</span>
     </div>
     
-    <h2>Gel-Git Simulator (Eşit Kural Tabanlı Matris)</h2>
+    <h2>Gel-Git Simulator (Temiz Tasarım Matrisi)</h2>
     
     <canvas id="mainCanvas" width="600" height="320"></canvas>
     
@@ -30,8 +30,8 @@
         <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> [2] Stabil</div>
         <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> [1] Kritik</div>
         <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> [0] Cokmus</div>
-        <div class="leg-item"><div class="leg-box" style="background:transparent; border: 2px dashed #00e5ff;"></div> ⬆️ Kendi Kendine Yükselen Mod (* )</div>
-        <div class="leg-item"><div class="leg-box" style="background:transparent; border: 2px dashed #ff9100;"></div> ⬇️ Kendi Kendine Eriyen Mod (- )</div>
+        <div class="leg-item"><div class="leg-box" style="background:transparent; border: 2px dashed #00e5ff;"></div> ⬆️ Kendi Kendine Yükselen Halkası</div>
+        <div class="leg-item"><div class="leg-box" style="background:transparent; border: 2px dashed #ff9100;"></div> ⬇️ Kendi Kendine Eriyen Halkası</div>
     </div>
 
     <script>
@@ -73,7 +73,7 @@
                     return;
                 }
 
-                // 3. Eğer ilk el açılışında arada bir değerdeyse varsayılan olarak erimeye başlasın
+                // 3. Varsayılan erime akışı
                 this.nextDirection = -1;
             }
 
@@ -95,7 +95,6 @@
         }
 
         // 6x3 Eşit Kurallı Başlangıç Matrisi
-        // İkinci parametre ile bazılarını baştan 'rising' (yükselen) veya 'sinking' (eriyen) yapabiliriz
         let nodes = [
             new HexNode(3), new HexNode(2), new HexNode(1, 'rising'), new HexNode(0), new HexNode(3), new HexNode(2),
             new HexNode(2), new HexNode(1, 'rising'), new HexNode(0), new HexNode(3), new HexNode(2), new HexNode(1),
@@ -126,7 +125,7 @@
             ctx.lineWidth = 2;
             ctx.setLineDash([]);
             
-            // Yön ve hafıza durumunu halkanın renginden şak diye anlıyoruz
+            // Yön bilgisi sadece renkli halkalar üzerinden gösterilir
             if (node.reachedZero && !node.isWall) {
                 ctx.strokeStyle = '#00e5ff'; // Yükselenler Cyan kesikli halka
                 ctx.lineWidth = 3;
@@ -138,17 +137,13 @@
             }
             ctx.stroke();
 
+            // Sadece saf sayıları yazdırıyoruz (Yazısal hiçbir sembol kalmadı)
             if (!node.isWall) {
                 ctx.fillStyle = textColors[node.energy];
                 ctx.font = 'bold 18px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                
-                let suffix = '';
-                if (node.reachedZero) suffix = '*';
-                if (node.reachedThree) suffix = '-';
-                
-                ctx.fillText(node.energy + suffix, x, y);
+                ctx.fillText(node.energy, x, y);
             }
         }
 
@@ -174,7 +169,6 @@
                     const { x, y } = getCenter(col, row);
                     if (Math.hypot(mX - x, mY - y) < r * 0.85) {
                         const idx = row * 6 + col;
-                        // Sol tık enerjiyi döngüsel değiştirir ve hafızayı günceller
                         nodes[idx].energy = (nodes[idx].energy + 1) % 4;
                         nodes[idx].reachedZero = (nodes[idx].energy === 0);
                         nodes[idx].reachedThree = (nodes[idx].energy === 3);
@@ -186,7 +180,7 @@
         }
 
         canvas.addEventListener('click', clickCheck);
-        canvas.addEventListener('contextmenu', (e) => e.preventDefault()); // Sağ tıkı kapattık, karmaşa bitti
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault()); 
 
         // --- GEL-GİT OYUN DÖNGÜSÜ (SPACE) ---
         document.addEventListener('keydown', (e) => {
@@ -194,4 +188,18 @@
                 e.preventDefault(); 
                 turn++;
 
-                // AŞAMA 1: Tur başında her
+                // AŞAMA 1: Karar aşaması
+                nodes.forEach(node => node.calculateNextMove());
+
+                // AŞAMA 2: Uygulama aşaması
+                nodes.forEach(node => node.applyMove());
+
+                renderMap();
+            }
+        });
+
+        window.onload = function() { renderMap(); };
+        renderMap();
+    </script>
+</body>
+</html>
