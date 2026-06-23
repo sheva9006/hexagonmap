@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gel-Git Hexagon Simulator v9.0 (Clean View)</title>
+    <title>Gel-Git Hexagon Simulator v9.1 (Fixed View)</title>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .info-panel { font-size: 20px; margin-bottom: 10px; color: #aaa; }
@@ -112,9 +112,13 @@
 
         function drawHex(x, y, node) {
             ctx.beginPath();
+            // ÇİZİM DÜZELTMESİ: İlk noktayı moveTo ile sabitleyerek kaybolma sorununu çözdük
             for (let i = 0; i < 6; i++) {
                 const angle = (Math.PI / 3) * i + (Math.PI / 6);
-                ctx.lineTo(x + r * Math.cos(angle), y + r * Math.sin(angle));
+                const hX = x + r * Math.cos(angle);
+                const hY = y + r * Math.sin(angle);
+                if (i === 0) ctx.moveTo(hX, hY);
+                else ctx.lineTo(hX, hY);
             }
             ctx.closePath();
 
@@ -137,7 +141,7 @@
             }
             ctx.stroke();
 
-            // Sadece saf sayıları yazdırıyoruz (Yazısal hiçbir sembol kalmadı)
+            // Sadece saf sayıları yazdırıyoruz
             if (!node.isWall) {
                 ctx.fillStyle = textColors[node.energy];
                 ctx.font = 'bold 18px sans-serif';
