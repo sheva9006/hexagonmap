@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gel-Git Hexagon Simulator v10.0 (Block Nodes)</title>
+    <title>Gel-Git Hexagon Simulator v11.0 (Pure Matrix)</title>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .info-panel { font-size: 20px; margin-bottom: 10px; color: #aaa; }
@@ -19,20 +19,18 @@
         Turn: <span id="turn_val" style="color:white; font-weight:bold;">1</span>
     </div>
     
-    <h2>Gel-Git Simulator (Block Özellikli Evrensel Matris)</h2>
+    <h2>Gel-Git Simulator (Saf & Hırçın 6x3 Matris)</h2>
     
     <canvas id="mainCanvas" width="600" height="320"></canvas>
     
-    <p style="color:#888;">💡 Sol Tik: Enerjiyi Değiştir (0 -> 1 -> 2 -> 3 -> -1 Block) | SPACE: Turn Atla</p>
+    <p style="color:#888;">💡 Tıkla: Değeri Değiştir (0, 1, 2, 3, -1 Block) | SPACE (Boşluk): Turn Atla</p>
 
     <div class="legend-area">
         <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> [3] Guvenli</div>
         <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> [2] Stabil</div>
         <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> [1] Kritik</div>
         <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> [0] Cokmus</div>
-        <div class="leg-item"><div class="leg-box" style="background:#121212; border: 1px dashed #555;"></div> [-1] Block / Duvar (Sabit)</div>
-        <div class="leg-item"><div class="leg-box" style="background:transparent; border: 2px dashed #00e5ff;"></div> ⬆️ Yükselen Mod Halkanız</div>
-        <div class="leg-item"><div class="leg-box" style="background:transparent; border: 2px dashed #ff9100;"></div> ⬇️ Eriyen Mod Halkanız</div>
+        <div class="leg-item"><div class="leg-box" style="background:#121212; border: 1px dashed #555;"></div> [-1] Block / Duvar (Asla Seviye Atlamaz)</div>
     </div>
 
     <script>
@@ -42,68 +40,15 @@
         let turn = 1;
         const r = 42; 
         
-        // Renk paletine -1 (Block) durumunu ekledik
         const colors = { 3: '#2ecc71', 2: '#f1c40f', 1: '#e74c3c', 0: '#34495e', "-1": '#121212' };
         const textColors = { 3: '#000', 2: '#000', 1: '#fff', 0: '#fff', "-1": '#fff' };
 
-        // --- EVRENSEL HEXAGON SINIFI ---
-        class HexNode {
-            constructor(energy, startState = 'none') {
-                this.energy = energy; // 0, 1, 2, 3 veya -1 (Block)
-                this.reachedZero = (startState === 'rising' || energy === 0);   
-                this.reachedThree = (startState === 'sinking' || energy === 3);  
-                this.nextDirection = 0;     
-            }
-
-            // TUR BAŞINDA KARAR ALMA
-            calculateNextMove() {
-                // EĞER BLOCK İSE: Turnlerde hiç seviye atlamaz, sabit kalır!
-                if (this.energy === -1) {
-                    this.nextDirection = 0;
-                    this.reachedZero = false;
-                    this.reachedThree = false;
-                    return;
-                }
-
-                // 1. Sıfıra vuran taş 3 olana kadar zorla yükselir
-                if (this.reachedZero) {
-                    this.nextDirection = 1;
-                    return;
-                }
-
-                // 2. Üçe vuran taş 0 olana kadar zorla erir
-                if (this.reachedThree) {
-                    this.nextDirection = -1;
-                    return;
-                }
-
-                // 3. Varsayılan akış
-                this.nextDirection = -1;
-            }
-
-            // HAREKETİ UYGULAMA VE SAKLAMA
-            applyMove() {
-                // Eğer Block ise burayı da doğrudan atlar, asla değişmez
-                if (this.energy === -1) return;
-
-                this.energy = Math.max(0, Math.min(3, this.energy + this.nextDirection));
-
-                // Sınır hafıza yönetimi
-                if (this.energy === 0) {
-                    this.reachedZero = true;
-                    this.reachedThree = false;
-                } else if (this.energy === 3) {
-                    this.reachedThree = true;
-                    this.reachedZero = false;
-                }
-            }
-        }
-
-        // Test için haritaya bir adet baştan -1 (Block) yerleştirdim
+        // 6x3 Matris - Dümdüz, hilesiz hurdasız JavaScript Nesneleri
+        // energy: seviye, yon: o anki hareket yönü (1 = artış, -1 = azalış, 0 = sabit)
         let nodes = [
-            new HexNode(3),  new HexNode(2),  new HexNode(1, 'rising'), new HexNode(0),  new HexNode(-1), new HexNode(2),
-            new HexNode(2),  new HexNode(-1), new HexNode(0),           new HexNode(3),  new HexNode(2),  new HexNode(1),
-            new HexNode(1),  new HexNode(0),  new HexNode(3),           new HexNode(-1), new HexNode(1),  new HexNode(0)
+            { energy: 3, yon: -1 }, { energy: 2, yon: -1 }, { energy: 1, yon: 1 },  { energy: 0, yon: 1 },  { energy: -1, yon: 0 }, { energy: 2, yon: -1 },
+            { energy: 2, yon: -1 }, { energy: -1, yon: 0 }, { energy: 0, yon: 1 },  { energy: 3, yon: -1 }, { energy: 2, yon: -1 }, { energy: 1, yon: -1 },
+            { energy: 1, yon: -1 }, { energy: 0, yon: 1 },  { energy: 3, yon: -1 }, { energy: -1, yon: 0 }, { energy: 1, yon: 1 },  { energy: 0, yon: 1 }
         ];
 
         function getCenter(col, row) {
@@ -126,32 +71,30 @@
             }
             ctx.closePath();
 
-            ctx.fillStyle = colors[node.energy];
+            // Renk doldurma
+            ctx.fillStyle = colors[node.energy] || '#34495e';
             ctx.fill();
 
-            ctx.strokeStyle = '#1a1a1a';
-            ctx.lineWidth = 2;
+            // Kenarlık çizgisi
+            ctx.strokeStyle = node.energy === -1 ? '#444' : '#1a1a1a';
+            ctx.lineWidth = node.energy === -1 ? 1 : 2;
             ctx.setLineDash([]);
             
-            // Eğer taş Block (-1) değilse yön halkalarını çiz
+            // Yön çizgileri (Block değilse ve yönü varsa)
             if (node.energy !== -1) {
-                if (node.reachedZero) {
-                    ctx.strokeStyle = '#00e5ff'; // Yükselenler Cyan halka
+                if (node.yon === 1) {
+                    ctx.strokeStyle = '#00e5ff'; // Yükselenlere Cyan çerçeve
                     ctx.lineWidth = 3;
                     ctx.setLineDash([4, 4]);
-                } else if (node.reachedThree) {
-                    ctx.strokeStyle = '#ff9100'; // Eriyenler Turuncu halka
+                } else if (node.yon === -1) {
+                    ctx.strokeStyle = '#ff9100'; // Eriyenlere Turuncu çerçeve
                     ctx.lineWidth = 3;
                     ctx.setLineDash([4, 4]);
                 }
-            } else {
-                // Block taşların kenarlığı belli olsun diye ince gri yapalım
-                ctx.strokeStyle = '#333';
-                ctx.lineWidth = 1;
             }
             ctx.stroke();
 
-            // Sadece Block olmayan taşların içine rakam yazdır
+            // Sayı yazdırma (Block olanlara yazma)
             if (node.energy !== -1) {
                 ctx.fillStyle = textColors[node.energy];
                 ctx.font = 'bold 18px sans-serif';
@@ -173,7 +116,8 @@
             document.getElementById('turn_val').innerText = turn;
         }
 
-        function clickCheck(e) {
+        // Tıklayınca değer değiştirme döngüsü
+        canvas.addEventListener('click', (e) => {
             const rect = canvas.getBoundingClientRect();
             const mX = e.clientX - rect.left;
             const mY = e.clientY - rect.top;
@@ -184,47 +128,43 @@
                     if (Math.hypot(mX - x, mY - y) < r * 0.85) {
                         const idx = row * 6 + col;
                         
-                        // Döngü: 0 -> 1 -> 2 -> 3 -> -1 -> 0
+                        // Sıra: 0 -> 1 -> 2 -> 3 -> -1 -> 0
                         if (nodes[idx].energy === 3) {
-                            nodes[idx].energy = -1; // Block moduna geçiş
+                            nodes[idx].energy = -1;
+                            nodes[idx].yon = 0; // Block oldu, yön bitti
                         } else if (nodes[idx].energy === -1) {
                             nodes[idx].energy = 0;
+                            nodes[idx].yon = 1; // Sıfır olunca yükselme emri
                         } else {
                             nodes[idx].energy++;
+                            nodes[idx].yon = nodes[idx].energy === 3 ? -1 : -1; // Ara geçişlerde erime eğilimi
                         }
-                        
-                        // Hafızaları temizle/ayarla
-                        nodes[idx].reachedZero = (nodes[idx].energy === 0);
-                        nodes[idx].reachedThree = (nodes[idx].energy === 3);
                         
                         renderMap();
                         return;
                     }
                 }
             }
-        }
+        });
 
-        canvas.addEventListener('click', clickCheck);
-        canvas.addEventListener('contextmenu', (e) => e.preventDefault()); 
+        // Sağ tık menüsünü engelle
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-        // --- GEL-GİT OYUN DÖNGÜSÜ (SPACE) ---
+        // --- TURN MOTORU (SPACE) ---
         document.addEventListener('keydown', (e) => {
             if (e.code === 'Space' || e.keyCode === 32) {
                 e.preventDefault(); 
                 turn++;
 
-                // AŞAMA 1: Her taş bağımsız karar alır (Block olanlar 0 yönü seçer)
-                nodes.forEach(node => node.calculateNextMove());
+                // Her turn atlandığında doğrudan matris üzerinde işlem yapıyoruz
+                for (let i = 0; i < nodes.length; i++) {
+                    let node = nodes[i];
 
-                // AŞAMA 2: Kararlar uygulanır
-                nodes.forEach(node => node.applyMove());
+                    // EĞER BLOCK (-1) İSE ASLA SEVİYE ATLAMAZ! Direkt geç.
+                    if (node.energy === -1) {
+                        node.yon = 0;
+                        continue;
+                    }
 
-                renderMap();
-            }
-        });
-
-        window.onload = function() { renderMap(); };
-        renderMap();
-    </script>
-</body>
-</html>
+                    // Enerjiyi o anki yöne göre değiştir
+                    node.energy +=
