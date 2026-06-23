@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gel-Git Hexagon Simulator v25.0 (Snapshot Save)</title>
+    <title>Tide Hexagon Simulator v25.1 (Snapshot Save & EN)</title>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .info-panel { font-size: 18px; margin-bottom: 15px; color: #aaa; display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -42,29 +42,29 @@
 
     <div class="info-panel">
         <div>Turn: <span id="turn_val" style="color:white; font-weight:bold;">1</span></div>
-        <div>Mod: <span id="status_val" class="status-txt">KURULUM (Enerji Atama)</span></div>
+        <div>Mode: <span id="status_val" class="status-txt">SETUP (Assign Energy)</span></div>
         
-        <button id="phase_toggle_btn" class="btn phase-btn">▶ Simülasyon Fazına Geç</button>
+        <button id="phase_toggle_btn" class="btn phase-btn">▶ Switch to Simulation Phase</button>
         
-        <button id="live_plus_btn" class="btn live-btn">➕ Canlı +1</button>
-        <button id="live_minus_btn" class="btn live-btn">➖ Canlı -1</button>
+        <button id="live_plus_btn" class="btn live-btn">➕ Live +1</button>
+        <button id="live_minus_btn" class="btn live-btn">➖ Live -1</button>
         
-        <button id="reset_btn" class="reset-btn btn">🔄 Sıfırla</button>
+        <button id="reset_btn" class="reset-btn btn">🔄 Reset</button>
     </div>
     
-    <h2>Gel-Git Simulator v25.0 (Durum Hafızalı Sistem)</h2>
+    <h2>Tide Simulator v25.1 (State-Memorized System)</h2>
     
     <canvas id="mainCanvas" width="600" height="320"></canvas>
     
-    <p style="color:#aaa;" id="helper_txt">💡 <b>Kullanım:</b> Hücrelere tıklayarak enerjileri yerleştir. Simülasyona geçince harita yedeklenecektir.</p>
+    <p style="color:#aaa;" id="helper_txt">💡 <b>Usage:</b> Click on cells to place energy. The map will be backed up when switching to simulation.</p>
 
     <div class="legend-area">
-        <div class="leg-item"><div class="leg-box" style="background:#1e1e1e; border:1px solid #333;"></div> Boş Alan</div>
-        <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> [3] Güvenli</div>
-        <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> [2] Stabil</div>
-        <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> [1] Kritik</div>
-        <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> [0] Çökmüş</div>
-        <div class="leg-item"><div class="leg-box" style="background:#0a0a0a; border:1px dashed #555;"></div> [B] Block / Engel</div>
+        <div class="leg-item"><div class="leg-box" style="background:#1e1e1e; border:1px solid #333;"></div> Empty Space</div>
+        <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> [3] Safe</div>
+        <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> [2] Stable</div>
+        <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> [1] Critical</div>
+        <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> [0] Collapsed</div>
+        <div class="leg-item"><div class="leg-box" style="background:#0a0a0a; border:1px dashed #555;"></div> [B] Block / Obstacle</div>
     </div>
 
     <script>
@@ -83,7 +83,6 @@
         const textColors = { "3": '#000', "2": '#000', "1": '#fff', "0": '#fff', "-1": '#888' };
         
         let nodes = [];
-        // HAFIZA YEDEĞİ: Simülasyona giriş anındaki haritayı burada saklayacağız
         let savedSnapshot = []; 
 
         function initEmptyMap() {
@@ -106,27 +105,27 @@
 
             if (isSimulationPhase) {
                 if (phaseBtn) {
-                    phaseBtn.innerText = "🛠 Kurulum Fazına Dön (Resetle)";
+                    phaseBtn.innerText = "🛠 Return to Setup Phase (Reset)";
                     phaseBtn.classList.add('phase-sim');
                 }
                 if (statusEl) {
-                    statusEl.innerText = "SİMÜLASYON FAZI (Adım Atma)";
+                    statusEl.innerText = "SIMULATION PHASE (Step Mode)";
                     statusEl.style.color = "#ff9100";
                 }
                 if (helperEl) {
-                    helperEl.innerHTML = "🏃‍♂️ <b>Sıra Oyuncuda:</b> Bastığın hücre sabit kalır, diğerleri akar. Dönüş butonu enerjileri başlangıca sarar.";
+                    helperEl.innerHTML = "🏃‍♂️ <b>Player's Turn:</b> The cell you click stays stable, others fluctuate. The return button reverts energies to the start.";
                 }
             } else {
                 if (phaseBtn) {
-                    phaseBtn.innerText = "▶ Simülasyon Fazına Geç";
+                    phaseBtn.innerText = "▶ Switch to Simulation Phase";
                     phaseBtn.classList.remove('phase-sim');
                 }
                 if (statusEl) {
-                    statusEl.innerText = "KURULUM (Enerji Atama)";
+                    statusEl.innerText = "SETUP (Assign Energy)";
                     statusEl.style.color = "#00e5ff";
                 }
                 if (helperEl) {
-                    helperEl.innerHTML = "💡 <b>Kullanım:</b> Tıklayarak enerjileri (0-3) veya engeli (B) yerleştir.";
+                    helperEl.innerHTML = "💡 <b>Usage:</b> Click to cycle through energies (0-3) or place a block (B).";
                 }
             }
         }
@@ -251,60 +250,4 @@
                         }
 
                         if (!isSimulationPhase && activeLiveTool === "none") {
-                            if (nodes[idx].energy === null) { nodes[idx].energy = 0; nodes[idx].yon = 1; }
-                            else if (nodes[idx].energy === 0) { nodes[idx].energy = 1; nodes[idx].yon = -1; }
-                            else if (nodes[idx].energy === 1) { nodes[idx].energy = 2; nodes[idx].yon = -1; }
-                            else if (nodes[idx].energy === 2) { nodes[idx].energy = 3; nodes[idx].yon = -1; }
-                            else if (nodes[idx].energy === 3) { nodes[idx].energy = -1; nodes[idx].yon = 0; }
-                            else if (nodes[idx].energy === -1) { nodes[idx].energy = null; nodes[idx].yon = 0; }
-                            renderMap();
-                        }
-                        return;
-                    }
-                }
-            }
-        });
-
-        canvas.addEventListener('contextmenu', e => e.preventDefault());
-
-        // FAZ DEĞİŞTİRME MANTIĞI VE HAFIZAYA ALMA SİSTEMİ
-        document.getElementById('phase_toggle_btn').addEventListener('click', () => {
-            if (!isSimulationPhase) {
-                // KURULUMDAN SİMÜLASYONA GEÇİŞ: Mevcut durumun derin kopyasını al (Yedekle)
-                savedSnapshot = nodes.map(n => ({ energy: n.energy, yon: n.yon }));
-                isSimulationPhase = true;
-            } else {
-                // SİMÜLASYONDAN KURULUMA GERİ DÖNÜŞ: İlk yedeklenen sayıları geri yükle!
-                if (savedSnapshot.length > 0) {
-                    nodes = savedSnapshot.map(n => ({ energy: n.energy, yon: n.yon }));
-                }
-                turn = 1; // Turn sayısını da başa sar
-                isSimulationPhase = false;
-            }
-            updateUI();
-            renderMap();
-        });
-
-        document.getElementById('live_plus_btn').addEventListener('click', () => {
-            activeLiveTool = (activeLiveTool === "plus") ? "none" : "plus";
-            updateUI();
-        });
-
-        document.getElementById('live_minus_btn').addEventListener('click', () => {
-            activeLiveTool = (activeLiveTool === "minus") ? "none" : "minus";
-            updateUI();
-        });
-
-        document.getElementById('reset_btn').addEventListener('click', resetSimulation);
-
-        document.addEventListener('keydown', (e) => {
-            if (e.code === 'KeyR' || e.keyCode === 82) {
-                e.preventDefault();
-                resetSimulation();
-            }
-        });
-
-        resetSimulation();
-    </script>
-</body>
-</html>
+                            if (nodes[idx].energy === null) { nodes[idx].energy = 0;
