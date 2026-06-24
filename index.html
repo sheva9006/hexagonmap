@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tide Hexagon Simulator v25.2 (Pure ASCII Code Fix)</title>
+    <title>Tide Hexagon Simulator v26.0 (Dynamic Capacity)</title>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .info-panel { font-size: 18px; margin-bottom: 15px; color: #aaa; display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -18,8 +18,9 @@
         .reset-btn { background: #e74c3c; }
         .reset-btn:hover { background: #c0392b; }
         
-        .live-btn { background: #555; border: 1px solid #777; padding: 8px 14px; font-size: 13px; }
-        .live-btn:hover { background: #666; }
+        .tool-btn { background: #444; border: 1px solid #666; padding: 8px 14px; font-size: 13px; }
+        .tool-btn:hover { background: #555; }
+        .tool-active { background: #f39c12 !important; color: black; box-shadow: 0 0 8px #f39c12; }
         .live-active-plus { background: #2ecc71 !important; color: black; box-shadow: 0 0 8px #2ecc71; }
         .live-active-minus { background: #e74c3c !important; color: white; box-shadow: 0 0 8px #e74c3c; }
 
@@ -46,25 +47,26 @@
         
         <button id="phase_toggle_btn" class="btn phase-btn">▶ Switch to Simulation Phase</button>
         
-        <button id="live_plus_btn" class="btn live-btn">➕ Live +1</button>
-        <button id="live_minus_btn" class="btn live-btn">➖ Live -1</button>
+        <button id="cap_tool_btn" class="btn tool-btn">⚙️ Set Max Energy (Cap)</button>
+        <button id="live_plus_btn" class="btn tool-btn">➕ Live +1</button>
+        <button id="live_minus_btn" class="btn tool-btn">➖ Live -1</button>
         
         <button id="reset_btn" class="reset-btn btn">🔄 Reset</button>
     </div>
     
-    <h2>Tide Simulator v25.2 (Clean ASCII)</h2>
+    <h2>Tide Simulator v26.0 (Dynamic Node Capacity)</h2>
     
     <canvas id="mainCanvas" width="600" height="320"></canvas>
     
-    <p style="color:#aaa;" id="helper_txt">💡 <b>Usage:</b> Click on cells to place energy. The map will be backed up when switching to simulation.</p>
+    <p style="color:#aaa;" id="helper_txt">💡 <b>Usage:</b> Click to cycle energy. Use "Set Max Energy" tool to change cell capacities dynamically!</p>
 
     <div class="legend-area">
-        <div class="leg-item"><div class="leg-box" style="background:#1e1e1e; border:1px solid #333;"></div> Empty Space</div>
+        <div class="leg-item"><div class="leg-box" style="background:#1e1e1e; border:1px solid #333;"></div> Empty</div>
         <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> [3] Safe</div>
         <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> [2] Stable</div>
         <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> [1] Critical</div>
         <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> [0] Collapsed</div>
-        <div class="leg-item"><div class="leg-box" style="background:#0a0a0a; border:1px dashed #555;"></div> [B] Block / Obstacle</div>
+        <div class="leg-item"><div class="leg-box" style="background:#0a0a0a; border:1px dashed #555;"></div> [B] Block</div>
     </div>
 
     <script>
@@ -74,7 +76,7 @@
         let turn = 1;
         const globalRadius = 42; 
         let isSimulationPhase = false; 
-        let activeLiveTool = "none"; 
+        let activeTool = "none"; // "none", "capacity", "plus", "minus"
 
         const colors = { 
             "null": '#1e1e1e', "-1": '#0a0a0a',
@@ -88,44 +90,33 @@
         function initEmptyMap() {
             nodes = [];
             for (let i = 0; i < 18; i++) {
-                nodes.push({ energy: null, yon: 0 }); 
+                nodes.push({ energy: null, yon: 0, maxEnergy: 3 }); 
             }
             savedSnapshot = [];
         }
 
         function updateUI() {
-            const btnPlus = document.getElementById('live_plus_btn');
-            const btnMinus = document.getElementById('live_minus_btn');
-            if (btnPlus) btnPlus.className = "btn live-btn" + (activeLiveTool === "plus" ? " live-active-plus" : "");
-            if (btnMinus) btnMinus.className = "btn live-btn" + (activeLiveTool === "minus" ? " live-active-minus" : "");
+            document.getElementById('cap_tool_btn').className = "btn tool-btn" + (activeTool === "capacity" ? " tool-active" : "");
+            document.getElementById('live_plus_btn').className = "btn tool-btn" + (activeTool === "plus" ? " live-active-plus" : "");
+            document.getElementById('live_minus_btn').className = "btn tool-btn" + (activeTool === "minus" ? " live-active-minus" : "");
 
             const phaseBtn = document.getElementById('phase_toggle_btn');
             const statusEl = document.getElementById('status_val');
             const helperEl = document.getElementById('helper_txt');
 
             if (isSimulationPhase) {
-                if (phaseBtn) {
-                    phaseBtn.innerText = "🛠 Return to Setup Phase (Reset)";
-                    phaseBtn.classList.add('phase-sim');
-                }
-                if (statusEl) {
-                    statusEl.innerText = "SIMULATION PHASE (Step Mode)";
-                    statusEl.style.color = "#ff9100";
-                }
-                if (helperEl) {
-                    helperEl.innerHTML = "🏃‍♂️ <b>Player's Turn:</b> The cell you click stays stable, others fluctuate. The return button reverts energies to the start.";
-                }
+                if (phaseBtn) { phaseBtn.innerText = "🛠 Return to Setup Phase (Reset)"; phaseBtn.classList.add('phase-sim'); }
+                if (statusEl) { statusEl.innerText = "SIMULATION PHASE (Step Mode)"; statusEl.style.color = "#ff9100"; }
+                if (helperEl) { helperEl.innerHTML = "🏃‍♂️ <b>Player's Turn:</b> Clicked cell stays stable. Others fluctuate based on their individual Max Capacity."; }
             } else {
-                if (phaseBtn) {
-                    phaseBtn.innerText = "▶ Switch to Simulation Phase";
-                    phaseBtn.classList.remove('phase-sim');
-                }
-                if (statusEl) {
-                    statusEl.innerText = "SETUP (Assign Energy)";
-                    statusEl.style.color = "#00e5ff";
-                }
-                if (helperEl) {
-                    helperEl.innerHTML = "💡 <b>Usage:</b> Click to cycle through energies (0-3) or place a block (B).";
+                if (phaseBtn) { phaseBtn.innerText = "▶ Switch to Simulation Phase"; phaseBtn.classList.remove('phase-sim'); }
+                if (statusEl) { statusEl.innerText = "SETUP (Assign Energy)"; statusEl.style.color = "#00e5ff"; }
+                if (helperEl) { 
+                    if(activeTool === "capacity") {
+                        helperEl.innerHTML = "⚙️ <b>Capacity Tool Active:</b> Click nodes to cycle their Max Capacity limit (1 → 2 → 3).";
+                    } else {
+                        helperEl.innerHTML = "💡 <b>Usage:</b> Click cells to cycle energy. Use 'Set Max Energy' to customize node limits.";
+                    }
                 }
             }
         }
@@ -154,18 +145,23 @@
             ctx.fillStyle = colors[fillKey] || colors["null"];
             ctx.fill();
 
-            ctx.strokeStyle = '#333'; 
-            ctx.lineWidth = 2; 
+            // Kapasiteye göre dış çizgi kalınlığı
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = node.maxEnergy === 3 ? 3 : (node.maxEnergy === 2 ? 1.5 : 0.5);
             ctx.setLineDash([]);
             
             if (isSimulationPhase && node.energy !== null && node.energy !== -1) {
-                if (node.yon === 1) {
-                    ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 3; ctx.setLineDash([4, 4]);
-                } else if (node.yon === -1) {
-                    ctx.strokeStyle = '#ff9100'; ctx.lineWidth = 3; ctx.setLineDash([4, 4]);
-                }
+                if (node.yon === 1) { ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 3; ctx.setLineDash([4, 4]); }
+                else if (node.yon === -1) { ctx.strokeStyle = '#ff9100'; ctx.lineWidth = 3; ctx.setLineDash([4, 4]); }
             }
             ctx.stroke();
+
+            // Kapasite Belirteci (Küçük kılavuz noktalar/metin)
+            if (node.energy !== null && node.energy !== -1) {
+                ctx.font = '9px sans-serif';
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                ctx.fillText(`max:${node.maxEnergy}`, x, y + 14);
+            }
 
             ctx.font = 'bold 16px sans-serif';
             ctx.textAlign = 'center';
@@ -176,7 +172,7 @@
                 ctx.fillText("B", x, y);
             } else if (node.energy !== null) {
                 ctx.fillStyle = textColors[String(node.energy)] || '#fff';
-                ctx.fillText(node.energy, x, y);
+                ctx.fillText(node.energy, x, y - 2);
             }
         }
 
@@ -203,8 +199,15 @@
                 if (i === steppedNodeIndex) continue; 
 
                 node.energy += node.yon;
-                if (node.energy >= 3) { node.energy = 3; node.yon = -1; }
-                else if (node.energy <= 0) { node.energy = 0; node.yon = 1; }
+                // ARTIK SINIR SABİT 3 DEĞİL, NODE'UN KENDİ maxEnergy DEĞERİ!
+                if (node.energy >= node.maxEnergy) { 
+                    node.energy = node.maxEnergy; 
+                    node.yon = -1; 
+                }
+                else if (node.energy <= 0) { 
+                    node.energy = 0; 
+                    node.yon = 1; 
+                }
             }
             renderMap();
         }
@@ -212,7 +215,7 @@
         function resetSimulation() {
             turn = 1;
             isSimulationPhase = false;
-            activeLiveTool = "none";
+            activeTool = "none";
             initEmptyMap();
             updateUI();
             renderMap();
@@ -230,32 +233,46 @@
                         const idx = row * 6 + col;
                         if (!nodes[idx]) return;
 
-                        if (activeLiveTool === "plus" && nodes[idx].energy !== null && nodes[idx].energy !== -1) {
-                            nodes[idx].energy = Math.min(3, nodes[idx].energy + 1);
-                            if (nodes[idx].energy === 3) nodes[idx].yon = -1;
-                            renderMap();
-                            return;
-                        } else if (activeLiveTool === "minus" && nodes[idx].energy !== null && nodes[idx].energy !== -1) {
-                            nodes[idx].energy = Math.max(0, nodes[idx].energy - 1);
-                            if (nodes[idx].energy === 0) nodes[idx].yon = 1;
+                        // 1. KAPASİTE AYARLAMA ARACI AKTİFSE
+                        if (activeTool === "capacity" && !isSimulationPhase) {
+                            node = nodes[idx];
+                            node.maxEnergy = node.maxEnergy === 3 ? 1 : node.maxEnergy + 1;
+                            if (node.energy !== null && node.energy > node.maxEnergy) {
+                                node.energy = node.maxEnergy;
+                            }
                             renderMap();
                             return;
                         }
 
-                        if (isSimulationPhase && activeLiveTool === "none") {
+                        // 2. LIVE CANLI DEĞİŞTİRME ARAÇLARI
+                        if (activeTool === "plus" && nodes[idx].energy !== null && nodes[idx].energy !== -1) {
+                            nodes[idx].energy = Math.min(nodes[idx].maxEnergy, nodes[idx].energy + 1);
+                            if (nodes[idx].energy === nodes[idx].maxEnergy) nodes[idx].yon = -1;
+                            renderMap(); return;
+                        } else if (activeTool === "minus" && nodes[idx].energy !== null && nodes[idx].energy !== -1) {
+                            nodes[idx].energy = Math.max(0, nodes[idx].energy - 1);
+                            if (nodes[idx].energy === 0) nodes[idx].yon = 1;
+                            renderMap(); return;
+                        }
+
+                        // 3. SİMÜLASYON FAZI TIKLAMASI
+                        if (isSimulationPhase && activeTool === "none") {
                             if (nodes[idx].energy !== null && nodes[idx].energy !== -1) {
                                 advanceTurn(idx); 
                             }
                             return;
                         }
 
-                        if (!isSimulationPhase && activeLiveTool === "none") {
-                            if (nodes[idx].energy === null) { nodes[idx].energy = 0; nodes[idx].yon = 1; }
-                            else if (nodes[idx].energy === 0) { nodes[idx].energy = 1; nodes[idx].yon = -1; }
-                            else if (nodes[idx].energy === 1) { nodes[idx].energy = 2; nodes[idx].yon = -1; }
-                            else if (nodes[idx].energy === 2) { nodes[idx].energy = 3; nodes[idx].yon = -1; }
-                            else if (nodes[idx].energy === 3) { nodes[idx].energy = -1; nodes[idx].yon = 0; }
-                            else if (nodes[idx].energy === -1) { nodes[idx].energy = null; nodes[idx].yon = 0; }
+                        // 4. KLASİK KURULUM FAZI TIKLAMASI (Dinamik Sınıra Göre Döngü)
+                        if (!isSimulationPhase && activeTool === "none") {
+                            let n = nodes[idx];
+                            if (n.energy === null) { n.energy = 0; n.yon = 1; }
+                            else if (n.energy < n.maxEnergy && n.energy >= 0) { 
+                                n.energy++; 
+                                n.yon = (n.energy === n.maxEnergy) ? -1 : n.yon;
+                            }
+                            else if (n.energy === n.maxEnergy) { n.energy = -1; n.yon = 0; }
+                            else if (n.energy === -1) { n.energy = null; n.yon = 0; }
                             renderMap();
                         }
                         return;
@@ -268,38 +285,35 @@
 
         document.getElementById('phase_toggle_btn').addEventListener('click', () => {
             if (!isSimulationPhase) {
-                savedSnapshot = nodes.map(n => ({ energy: n.energy, yon: n.yon }));
+                savedSnapshot = nodes.map(n => ({ energy: n.energy, yon: n.yon, maxEnergy: n.maxEnergy }));
                 isSimulationPhase = true;
+                activeTool = "none";
             } else {
                 if (savedSnapshot.length > 0) {
-                    nodes = savedSnapshot.map(n => ({ energy: n.energy, yon: n.yon }));
+                    nodes = savedSnapshot.map(n => ({ energy: n.energy, yon: n.yon, maxEnergy: n.maxEnergy }));
                 }
-                turn = 1; 
-                isSimulationPhase = false;
+                turn = 1; isSimulationPhase = false;
             }
+            updateUI(); renderMap();
+        });
+
+        document.getElementById('cap_tool_btn').addEventListener('click', () => {
+            if(isSimulationPhase) return;
+            activeTool = (activeTool === "capacity") ? "none" : "capacity";
             updateUI();
-            renderMap();
         });
 
         document.getElementById('live_plus_btn').addEventListener('click', () => {
-            activeLiveTool = (activeLiveTool === "plus") ? "none" : "plus";
+            activeTool = (activeTool === "plus") ? "none" : "plus";
             updateUI();
         });
 
         document.getElementById('live_minus_btn').addEventListener('click', () => {
-            activeLiveTool = (activeLiveTool === "minus") ? "none" : "minus";
+            activeTool = (activeTool === "minus") ? "none" : "minus";
             updateUI();
         });
 
         document.getElementById('reset_btn').addEventListener('click', resetSimulation);
-
-        document.addEventListener('keydown', (e) => {
-            if (e.code === 'KeyR' || e.keyCode === 82) {
-                e.preventDefault();
-                resetSimulation();
-            }
-        });
-
         resetSimulation();
     </script>
 </body>
