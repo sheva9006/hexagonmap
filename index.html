@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tide Hexagon Simulator v27.0 (3-Phase Editor)</title>
+    <title>Tide Hexagon Simulator v27.1 (Corrected Tide Direction)</title>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .info-panel { font-size: 18px; margin-bottom: 15px; color: #aaa; display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -46,7 +46,7 @@
         <button id="reset_btn" class="reset-btn btn">🔄 Wipe All</button>
     </div>
     
-    <h2>Tide Simulator v27.0 (The 3-Phase Workflow)</h2>
+    <h2>Tide Simulator v27.1 (Tide Drops First)</h2>
     
     <canvas id="mainCanvas" width="600" height="320"></canvas>
     
@@ -65,7 +65,7 @@
         const canvas = document.getElementById('mainCanvas');
         const ctx = canvas.getContext('2d');
 
-        let currentPhase = 1; // 1: Capacity, 2: Init Energy, 3: Simulation
+        let currentPhase = 1; 
         let turn = 1;
         const globalRadius = 42; 
 
@@ -76,18 +76,17 @@
         const textColors = { "3": '#000', "2": '#000', "1": '#fff', "0": '#fff', "-1": '#888' };
         
         let nodes = [];
-        let savedSnapshot = []; // Phase 2'nin son halini korur
+        let savedSnapshot = []; 
 
         function initEmptyMap() {
             nodes = [];
             for (let i = 0; i < 18; i++) {
-                nodes.push({ energy: null, yon: 1, maxEnergy: 3, isBlock: false }); 
+                nodes.push({ energy: null, yon: -1, maxEnergy: 3, isBlock: false }); 
             }
             savedSnapshot = [];
         }
 
         function updateUI() {
-            // Butonların aktiflik durum çizgileri
             document.getElementById('btn_p1').className = "btn phase-1-btn" + (currentPhase === 1 ? " active-phase-btn" : "");
             document.getElementById('btn_p2').className = "btn phase-2-btn" + (currentPhase === 2 ? " active-phase-btn" : "");
             document.getElementById('btn_p3').className = "btn phase-3-btn" + (currentPhase === 3 ? " active-phase-btn" : "");
@@ -100,10 +99,10 @@
                 helperEl.innerHTML = "🛠️ <b>Phase 1:</b> Click cells to define Max Capacities (1 → 2 → 3) or set a Block (B).";
             } else if (currentPhase === 2) {
                 statusEl.innerText = "2. ENERGY INITIALIZATION"; statusEl.style.color = "#2ecc71";
-                helperEl.innerHTML = "⚡ <b>Phase 2:</b> Click cells to inject initial energy. Sapped to cell's individual maximum capacity limit!";
+                helperEl.innerHTML = "⚡ <b>Phase 2:</b> Click cells to inject initial energy. Energies will naturally drain first upon simulation!";
             } else if (currentPhase === 3) {
                 statusEl.innerText = "3. ACTIVE SIMULATION"; statusEl.style.color = "#e67e22";
-                helperEl.innerHTML = "🏃‍♂️ <b>Phase 3:</b> Click nodes to step the puzzle. Returning to Phase 2 will rewind to original energy counts.";
+                helperEl.innerHTML = "🏃‍♂️ <b>Phase 3:</b> Click nodes to advance simulation. Watch energies drain to 0 before rising back up.";
             }
         }
 
@@ -134,7 +133,6 @@
             ctx.fillStyle = colors[fillKey] || colors["null"];
             ctx.fill();
 
-            // Border kalınlığı Max Kapasiteyi gösterir
             ctx.strokeStyle = '#333';
             if (!node.isBlock) {
                 ctx.lineWidth = node.maxEnergy === 3 ? 4 : (node.maxEnergy === 2 ? 2 : 0.8);
@@ -143,14 +141,13 @@
             }
             ctx.setLineDash([]);
             
-            // Simülasyon yön çizgileri
+            // DÜZELTİLDİ: Akış çizgileri (Turuncu = Azalıyor/Düşüyor, Mavi = Artıyor/Yükseliyor)
             if (currentPhase === 3 && node.energy !== null && !node.isBlock) {
                 if (node.yon === 1) { ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 3; ctx.setLineDash([4, 4]); }
                 else if (node.yon === -1) { ctx.strokeStyle = '#ff9100'; ctx.lineWidth = 3; ctx.setLineDash([4, 4]); }
             }
             ctx.stroke();
 
-            // Küçük Kılavuz Bilgisi
             if (!node.isBlock && currentPhase !== 3) {
                 ctx.font = '9px sans-serif';
                 ctx.fillStyle = 'rgba(255,255,255,0.35)';
@@ -192,8 +189,16 @@
                 if (i === steppedNodeIndex) continue; 
 
                 node.energy += node.yon;
-                if (node.energy >= node.maxEnergy) { node.energy = node.maxEnergy; node.yon = -1; }
-                else if (node.energy <= 0) { node.energy = 0; node.yon = 1; }
+                
+                // DÜZELTİLDİ: Sınır mantığı artık önce düşüşü, dipte yön değiştirmeyi hesaplıyor
+                if (node.energy <= 0) { 
+                    node.energy = 0; 
+                    node.yon = 1; // Sıfıra çarpınca yükselmeye başla
+                }
+                else if (node.energy >= node.maxEnergy) { 
+                    node.energy = node.maxEnergy; 
+                    node.yon = -1; // Maksimuma ulaşınca düşmeye başla
+                }
             }
             renderMap();
         }
@@ -211,7 +216,6 @@
                         if (!nodes[idx]) return;
                         let n = nodes[idx];
 
-                        // FAZ 1: Sadece Kapasite ve Engel Belirleme
                         if (currentPhase === 1) {
                             if (!n.isBlock && n.maxEnergy === 3) { n.maxEnergy = 2; }
                             else if (!n.isBlock && n.maxEnergy === 2) { n.maxEnergy = 1; }
@@ -220,16 +224,14 @@
                             renderMap();
                         }
                         
-                        // FAZ 2: Sadece Enerji Yerleştirme (Kapasite Sınırına Sadık Kalır)
                         else if (currentPhase === 2) {
-                            if (n.isBlock) return; // Engele enerji verilemez
-                            if (n.energy === null) { n.energy = 0; n.yon = 1; }
-                            else if (n.energy < n.maxEnergy) { n.energy++; n.yon = (n.energy === n.maxEnergy) ? -1 : 1; }
+                            if (n.isBlock) return;
+                            if (n.energy === null) { n.energy = n.maxEnergy; n.yon = -1; } // İlk klikte max doldur ve yönü aşağı ver
+                            else if (n.energy > 0) { n.energy--; n.yon = -1; }
                             else { n.energy = null; }
                             renderMap();
                         }
                         
-                        // FAZ 3: Canlı Oynanış Simülasyonu
                         else if (currentPhase === 3) {
                             if (!n.isBlock && n.energy !== null) {
                                 advanceTurn(idx);
@@ -241,13 +243,11 @@
             }
         });
 
-        // ÜST FAZ BUTONLARININ TETİKLEYİCİLERİ
         document.getElementById('btn_p1').addEventListener('click', () => {
             currentPhase = 1; turn = 1; updateUI(); renderMap();
         });
 
         document.getElementById('btn_p2').addEventListener('click', () => {
-            // Eğer simülasyondan geri çıkılıyorsa snapshot'ı geri yükle
             if (currentPhase === 3 && savedSnapshot.length > 0) {
                 nodes = savedSnapshot.map(n => ({ energy: n.energy, yon: n.yon, maxEnergy: n.maxEnergy, isBlock: n.isBlock }));
             }
@@ -256,7 +256,6 @@
 
         document.getElementById('btn_p3').addEventListener('click', () => {
             if (currentPhase !== 3) {
-                // Faz 2'nin son durumunu tam oynamaya başlarken hafızaya alıyoruz (Yedek)
                 savedSnapshot = nodes.map(n => ({ energy: n.energy, yon: n.yon, maxEnergy: n.maxEnergy, isBlock: n.isBlock }));
             }
             currentPhase = 3; updateUI(); renderMap();
