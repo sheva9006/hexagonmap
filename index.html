@@ -2,55 +2,38 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tide Hexagon Simulator v27.2 (Smart Direction Fix)</title>
+    <title>Tide Hexagon Simulator v27.3 (Pure Render Fix)</title>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .info-panel { font-size: 18px; margin-bottom: 15px; color: #aaa; display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; }
-        
-        .btn {
-            color: white; border: none; padding: 10px 18px; font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: all 0.2s;
-        }
-        .phase-1-btn { background: #2980b9; box-shadow: 0 0 10px rgba(41, 128, 185, 0.4); }
-        .phase-2-btn { background: #27ae60; box-shadow: 0 0 10px rgba(39, 174, 96, 0.4); }
-        .phase-3-btn { background: #d35400; box-shadow: 0 0 10px rgba(211, 84, 0, 0.4); }
-        
+        .btn { color: white; border: none; padding: 10px 18px; font-size: 14px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+        .phase-1-btn { background: #2980b9; }
+        .phase-2-btn { background: #27ae60; }
+        .phase-3-btn { background: #d35400; }
         .active-phase-btn { outline: 3px solid #fff; transform: scale(1.05); }
         .reset-btn { background: #c0392b; }
-
-        #mainCanvas { 
-            background: #1a1a1a; 
-            border: 2px solid #333; 
-            border-radius: 12px; 
-            margin-top: 10px; 
-            cursor: pointer; 
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            display: inline-block;
-        }
+        #mainCanvas { background: #1a1a1a; border: 2px solid #333; border-radius: 12px; margin-top: 10px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
         .legend-area { display: flex; justify-content: center; gap: 15px; margin-top: 20px; font-size: 14px; }
         .leg-item { display: flex; align-items: center; gap: 5px; }
         .leg-box { width: 15px; height: 15px; border-radius: 3px; }
-        .status-txt { font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div class="info-panel">
         <div>Turn: <span id="turn_val" style="color:white; font-weight:bold;">1</span></div>
-        <div>Active Phase: <span id="status_val" class="status-txt"></span></div>
+        <div>Active Phase: <span id="status_val" style="font-weight:bold;">1. Set Capacities</span></div>
         
-        <button id="btn_p1" class="btn phase-1-btn">1. Set Capacities</button>
+        <button id="btn_p1" class="btn phase-1-btn active-phase-btn">1. Set Capacities</button>
         <button id="btn_p2" class="btn phase-2-btn">2. Set Init Energy</button>
         <button id="btn_p3" class="btn phase-3-btn">3. Run Simulation</button>
         
         <button id="reset_btn" class="reset-btn btn">🔄 Wipe All</button>
     </div>
     
-    <h2>Tide Simulator v27.2 (Smart Dynamic Bound)</h2>
+    <canvas id="mainCanvas" width="650" height="350"></canvas>
     
-    <canvas id="mainCanvas" width="600" height="320"></canvas>
-    
-    <p style="color:#eee; background: #222; padding: 10px; display: inline-block; border-radius: 6px;" id="helper_txt"></p>
+    <p style="color:#eee; background: #222; padding: 10px; display: inline-block; border-radius: 6px;" id="helper_txt">🛠️ <b>Phase 1:</b> Set Capacities or Blocks.</p>
 
     <div class="legend-area">
         <div class="leg-item"><div class="leg-box" style="background:#1e1e1e; border:1px solid #333;"></div> Empty Space</div>
@@ -58,7 +41,7 @@
         <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> Stable</div>
         <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> Critical</div>
         <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> Collapsed</div>
-        <div class="leg-item"><div class="leg-box" style="background:#0a0a0a; border:1px dashed #555;"></div> [B] Block / Obstacle</div>
+        <div class="leg-item"><div class="leg-box" style="background:#0a0a0a; border:1px dashed #555;"></div> [B] Block</div>
     </div>
 
     <script>
@@ -67,7 +50,7 @@
 
         let currentPhase = 1; 
         let turn = 1;
-        const globalRadius = 42; 
+        const radius = 40; 
 
         const colors = { 
             "null": '#1e1e1e', "-1": '#0a0a0a',
@@ -96,36 +79,40 @@
 
             if (currentPhase === 1) {
                 statusEl.innerText = "1. NODE CAPACITY SETTING"; statusEl.style.color = "#3498db";
-                helperEl.innerHTML = "🛠️ <b>Phase 1:</b> Set Capacities or Blocks.";
+                helperEl.innerHTML = "🛠️ <b>Phase 1:</b> Click cells to cycle Max Capacities (1 to 3) or set Block (B).";
             } else if (currentPhase === 2) {
                 statusEl.innerText = "2. ENERGY INITIALIZATION"; statusEl.style.color = "#2ecc71";
-                helperEl.innerHTML = "⚡ <b>Phase 2:</b> Click to assign start energy. (0 automatically rises, others drain first!)";
+                helperEl.innerHTML = "⚡ <b>Phase 2:</b> Click cells to assign energy. (0 automatically rises, others drain first!)";
             } else if (currentPhase === 3) {
                 statusEl.innerText = "3. ACTIVE SIMULATION"; statusEl.style.color = "#e67e22";
-                helperEl.innerHTML = "🏃‍♂️ <b>Phase 3:</b> Click cells. Orange borders = Draining, Cyan borders = Rising.";
+                helperEl.innerHTML = "🏃‍♂️ <b>Phase 3:</b> Click cells. Cyan border = Rising, Orange border = Draining.";
             }
         }
 
         function getCenter(col, row) {
-            const w = globalRadius * Math.sqrt(3);
-            const h = globalRadius * 2;
-            let x = 90 + col * w;
-            if (row % 2 === 1) x += w / 2;
-            const y = 70 + row * (h * 3/4);
+            const widthSpacing = radius * Math.sqrt(3);
+            const heightSpacing = radius * 2 * 0.75;
+            let x = 80 + col * widthSpacing;
+            if (row % 2 === 1) {
+                x += widthSpacing / 2;
+            }
+            let y = 70 + row * heightSpacing;
             return { x, y };
         }
 
-        function drawHexAndBorder(x, y, node) {
+        function drawHexagon(x, y, node) {
+            ctx.save();
             ctx.beginPath();
             for (let i = 0; i < 6; i++) {
                 const angle = (Math.PI / 3) * i + (Math.PI / 6);
-                const hX = x + globalRadius * Math.cos(angle);
-                const hY = y + globalRadius * Math.sin(angle);
+                const hX = x + radius * Math.cos(angle);
+                const hY = y + radius * Math.sin(angle);
                 if (i === 0) ctx.moveTo(hX, hY);
                 else ctx.lineTo(hX, hY);
             }
             ctx.closePath();
 
+            // Renk Belirleme
             let fillKey = "null";
             if (node.isBlock) fillKey = "-1";
             else if (node.energy !== null) fillKey = String(node.energy);
@@ -133,12 +120,137 @@
             ctx.fillStyle = colors[fillKey] || colors["null"];
             ctx.fill();
 
-            ctx.strokeStyle = '#333';
-            if (!node.isBlock) {
-                ctx.lineWidth = node.maxEnergy === 3 ? 4 : (node.maxEnergy === 2 ? 2 : 0.8);
-            } else { ctx.lineWidth = 2; }
-            ctx.setLineDash([]);
+            // Varsayılan Sınır Çizgisi
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = node.maxEnergy === 3 ? 4 : (node.maxEnergy === 2 ? 2 : 1);
             
+            // Simülasyon fazında renkli yön çizgileri
             if (currentPhase === 3 && node.energy !== null && !node.isBlock) {
-                if (node.yon === 1) { ctx.strokeStyle = '#00e5ff'; ctx.lineWidth = 3; ctx.setLineDash([4, 4]); }
-                else if (node.yon === -1) { ctx.strokeStyle = '#ff9100'; ctx.lineWidth =
+                ctx.strokeStyle = node.yon === 1 ? '#00e5ff' : '#ff9100';
+                ctx.lineWidth = 3;
+            }
+            ctx.stroke();
+            ctx.restore();
+
+            // Kapasite Bilgisi Metni (Alt Kısım)
+            if (!node.isBlock && currentPhase !== 3) {
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('cap:' + node.maxEnergy, x, y + 15);
+            }
+
+            // Enerji veya Blok Değeri Metni (Merkez)
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            if (node.isBlock) {
+                ctx.fillStyle = textColors["-1"];
+                ctx.font = 'bold 16px sans-serif';
+                ctx.fillText("B", x, y - 2);
+            } else if (node.energy !== null) {
+                ctx.fillStyle = textColors[String(node.energy)] || '#fff';
+                ctx.font = 'bold 16px sans-serif';
+                ctx.fillText(node.energy, x, y - 2);
+            }
+        }
+
+        function renderMap() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 6; col++) {
+                    const idx = row * 6 + col;
+                    const coords = getCenter(col, row);
+                    drawHexagon(coords.x, coords.y, nodes[idx]);
+                }
+            }
+            document.getElementById('turn_val').innerText = turn;
+        }
+
+        function advanceTurn(steppedNodeIndex) {
+            turn++;
+            for (let i = 0; i < nodes.length; i++) {
+                let node = nodes[i];
+                if (node.energy === null || node.isBlock) continue;
+                if (i === steppedNodeIndex) continue; 
+
+                node.energy += node.yon;
+                
+                if (node.energy <= 0) { 
+                    node.energy = 0; 
+                    node.yon = 1; 
+                } else if (node.energy >= node.maxEnergy) { 
+                    node.energy = node.maxEnergy; 
+                    node.yon = -1; 
+                }
+            }
+            renderMap();
+        }
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mX = e.clientX - rect.left;
+            const mY = e.clientY - rect.top;
+
+            for (let row = 0; row < 3; row++) {
+                for (let col = 0; col < 6; col++) {
+                    const coords = getCenter(col, row);
+                    if (Math.hypot(mX - coords.x, mY - coords.y) < radius * 0.9) {
+                        const idx = row * 6 + col;
+                        let n = nodes[idx];
+
+                        if (currentPhase === 1) {
+                            if (!n.isBlock && n.maxEnergy === 3) { n.maxEnergy = 2; }
+                            else if (!n.isBlock && n.maxEnergy === 2) { n.maxEnergy = 1; }
+                            else if (!n.isBlock && n.maxEnergy === 1) { n.isBlock = true; n.energy = null; }
+                            else if (n.isBlock) { n.isBlock = false; n.maxEnergy = 3; }
+                            renderMap();
+                        } else if (currentPhase === 2) {
+                            if (n.isBlock) return;
+                            if (n.energy === null) { n.energy = n.maxEnergy; } 
+                            else if (n.energy > 0) { n.energy--; }
+                            else { n.energy = null; }
+                            renderMap();
+                        } else if (currentPhase === 3) {
+                            if (!n.isBlock && n.energy !== null) {
+                                advanceTurn(idx);
+                            }
+                        }
+                        return;
+                    }
+                }
+            }
+        });
+
+        document.getElementById('btn_p1').addEventListener('click', () => {
+            currentPhase = 1; turn = 1; updateUI(); renderMap();
+        });
+
+        document.getElementById('btn_p2').addEventListener('click', () => {
+            if (currentPhase === 3 && savedSnapshot.length > 0) {
+                nodes = savedSnapshot.map(n => ({ energy: n.energy, yon: n.yon, maxEnergy: n.maxEnergy, isBlock: n.isBlock }));
+            }
+            currentPhase = 2; turn = 1; updateUI(); renderMap();
+        });
+
+        document.getElementById('btn_p3').addEventListener('click', () => {
+            if (currentPhase !== 3) {
+                for (let i = 0; i < nodes.length; i++) {
+                    let n = nodes[i];
+                    if (n.energy === null || n.isBlock) continue;
+                    n.yon = (n.energy === 0) ? 1 : -1;
+                }
+                savedSnapshot = nodes.map(n => ({ energy: n.energy, yon: n.yon, maxEnergy: n.maxEnergy, isBlock: n.isBlock }));
+            }
+            currentPhase = 3; updateUI(); renderMap();
+        });
+
+        document.getElementById('reset_btn').addEventListener('click', () => {
+            turn = 1; currentPhase = 1; initEmptyMap(); updateUI(); renderMap();
+        });
+
+        initEmptyMap(); 
+        updateUI(); 
+        renderMap();
+    </script>
+</body>
+</html>
