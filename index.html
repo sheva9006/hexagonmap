@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Tide Hexagon Simulator v27.4 (Live Tools Restored)</title>
+    <title>Tide Hexagon Simulator v28.1 (Named Nodes JSON)</title>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .info-panel { font-size: 18px; margin-bottom: 15px; color: #aaa; display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -20,9 +20,16 @@
         
         .reset-btn { background: #c0392b; }
         #mainCanvas { background: #1a1a1a; border: 2px solid #333; border-radius: 12px; margin-top: 10px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
-        .legend-area { display: flex; justify-content: center; gap: 15px; margin-top: 20px; font-size: 14px; }
+        .legend-area { display: flex; justify-content: center; gap: 15px; margin-top: 15px; font-size: 14px; }
         .leg-item { display: flex; align-items: center; gap: 5px; }
         .leg-box { width: 15px; height: 15px; border-radius: 3px; }
+
+        .json-box { margin-top: 20px; background: #1e1e1e; border: 1px solid #444; padding: 15px; border-radius: 8px; display: inline-block; width: 620px; text-align: left; }
+        .json-box h3 { margin-top: 0; color: #00e5ff; font-size: 16px; }
+        .json-textarea { width: 100%; height: 110px; background: #111; color: #2ecc71; border: 1px solid #333; font-family: monospace; font-size: 11px; padding: 5px; box-sizing: border-box; resize: none; }
+        .note-input { width: 100%; padding: 8px; background: #222; border: 1px solid #444; color: white; border-radius: 4px; margin-bottom: 10px; box-sizing: border-box; }
+        .json-actions { display: flex; gap: 10px; margin-top: 10px; }
+        .io-btn { background: #7f8c8d; font-size: 12px; padding: 6px 12px; }
     </style>
 </head>
 <body>
@@ -43,15 +50,25 @@
     
     <canvas id="mainCanvas" width="650" height="350"></canvas>
     
-    <p style="color:#eee; background: #222; padding: 10px; display: inline-block; border-radius: 6px;" id="helper_txt">🛠️ <b>Phase 1:</b> Set Capacities or Blocks.</p>
+    <p style="color:#eee; background: #222; padding: 10px; display: inline-block; border-radius: 6px; margin: 5px 0;" id="helper_txt"></p>
 
     <div class="legend-area">
-        <div class="leg-item"><div class="leg-box" style="background:#1e1e1e; border:1px solid #333;"></div> Empty Space</div>
-        <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> Safe</div>
-        <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> Stable</div>
-        <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> Critical</div>
-        <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> Collapsed</div>
+        <div class="leg-item"><div class="leg-box" style="background:#1e1e1e; border:1px solid #333;"></div> Empty</div>
+        <div class="leg-item"><div class="leg-box" style="background:#2ecc71"></div> Safe (3)</div>
+        <div class="leg-item"><div class="leg-box" style="background:#f1c40f"></div> Stable (2)</div>
+        <div class="leg-item"><div class="leg-box" style="background:#e74c3c"></div> Critical (1)</div>
+        <div class="leg-item"><div class="leg-box" style="background:#34495e"></div> Collapse (0)</div>
         <div class="leg-item"><div class="leg-box" style="background:#0a0a0a; border:1px dashed #555;"></div> [B] Block</div>
+    </div>
+
+    <div class="json-box">
+        <h3>🗺️ Level Data Editor (Named Nodes Support)</h3>
+        <input type="text" id="map_note_input" class="note-input" placeholder="✍️ Harita notu, tasarımcı yorumu veya çözüm ipucu ekle..." />
+        <textarea id="json_area" class="json-textarea" placeholder="JSON çıktıları burada isimlendirilmiş (node_1, node_2...) olarak görünecek..."></textarea>
+        <div class="json-actions">
+            <button id="export_btn" class="btn io-btn" style="background:#8e44ad;">📥 Export Map Data</button>
+            <button id="import_btn" class="btn io-btn" style="background:#16a085;">📤 Import / Load JSON</button>
+        </div>
     </div>
 
     <script>
@@ -61,7 +78,7 @@
         let currentPhase = 1; 
         let turn = 1;
         const radius = 40; 
-        let activeLiveTool = "none"; // "none", "plus", "minus"
+        let activeLiveTool = "none"; 
 
         const colors = { 
             "null": '#1e1e1e', "-1": '#0a0a0a',
@@ -78,6 +95,8 @@
                 nodes.push({ energy: null, yon: -1, maxEnergy: 3, isBlock: false }); 
             }
             savedSnapshot = [];
+            document.getElementById('map_note_input').value = "";
+            document.getElementById('json_area').value = "";
         }
 
         function updateUI() {
@@ -93,19 +112,15 @@
 
             if (currentPhase === 1) {
                 statusEl.innerText = "1. NODE CAPACITY SETTING"; statusEl.style.color = "#3498db";
-                helperEl.innerHTML = "🛠️ <b>Phase 1:</b> Click cells to cycle Max Capacities (1 to 3) or set Block (B).";
+                helperEl.innerHTML = "🛠️ <b>Phase 1:</b> Set Max Capacities (1 to 3) or Blocks (B).";
             } else if (currentPhase === 2) {
                 statusEl.innerText = "2. ENERGY INITIALIZATION"; statusEl.style.color = "#2ecc71";
-                helperEl.innerHTML = "⚡ <b>Phase 2:</b> Click cells to assign energy. (0 automatically rises, others drain first!)";
+                helperEl.innerHTML = "⚡ <b>Phase 2:</b> Assign starting energy counts.";
             } else if (currentPhase === 3) {
                 statusEl.innerText = "3. ACTIVE SIMULATION"; statusEl.style.color = "#e67e22";
-                if(activeLiveTool === "plus") {
-                    helperEl.innerHTML = "➕ <b>Live Tool Active:</b> Click nodes to manually injection +1 energy right now!";
-                } else if(activeLiveTool === "minus") {
-                    helperEl.innerHTML = "➖ <b>Live Tool Active:</b> Click nodes to manually drain -1 energy right now!";
-                } else {
-                    helperEl.innerHTML = "🏃‍♂️ <b>Phase 3:</b> Click cells to step the puzzle. Cyan border = Rising, Orange border = Draining.";
-                }
+                if(activeLiveTool === "plus") helperEl.innerHTML = "➕ <b>Live Tool:</b> Injection +1 energy!";
+                else if(activeLiveTool === "minus") helperEl.innerHTML = "➖ <b>Live Tool:</b> Drain -1 energy!";
+                else helperEl.innerHTML = "🏃‍♂️ <b>Phase 3:</b> Click cells to step simulation. Cyan = Rising, Orange = Draining.";
             }
         }
 
@@ -118,7 +133,7 @@
             return { x, y };
         }
 
-        function drawHexagon(x, y, node) {
+        function drawHexagon(x, y, node, index) {
             ctx.save();
             ctx.beginPath();
             for (let i = 0; i < 6; i++) {
@@ -147,11 +162,16 @@
             ctx.stroke();
             ctx.restore();
 
-            if (!node.isBlock && currentPhase !== 3) {
-                ctx.fillStyle = 'rgba(255,255,255,0.4)';
-                ctx.font = '10px sans-serif';
+            // Kılavuz İndeks Bilgisi (Üst Kısım - Sadece Editör Fazlarında Görünür)
+            if (currentPhase !== 3) {
+                ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                ctx.font = '9px monospace';
                 ctx.textAlign = 'center';
-                ctx.fillText('cap:' + node.maxEnergy, x, y + 15);
+                ctx.fillText('#' + (index + 1), x, y - 16);
+                
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                ctx.font = '9px sans-serif';
+                if(!node.isBlock) ctx.fillText('cap:' + node.maxEnergy, x, y + 15);
             }
 
             ctx.textAlign = 'center';
@@ -173,7 +193,7 @@
                 for (let col = 0; col < 6; col++) {
                     const idx = row * 6 + col;
                     const coords = getCenter(col, row);
-                    drawHexagon(coords.x, coords.y, nodes[idx]);
+                    drawHexagon(coords.x, coords.y, nodes[idx], idx);
                 }
             }
             document.getElementById('turn_val').innerText = turn;
@@ -187,14 +207,8 @@
                 if (i === steppedNodeIndex) continue; 
 
                 node.energy += node.yon;
-                
-                if (node.energy <= 0) { 
-                    node.energy = 0; 
-                    node.yon = 1; 
-                } else if (node.energy >= node.maxEnergy) { 
-                    node.energy = node.maxEnergy; 
-                    node.yon = -1; 
-                }
+                if (node.energy <= 0) { node.energy = 0; node.yon = 1; } 
+                else if (node.energy >= node.maxEnergy) { node.energy = node.maxEnergy; node.yon = -1; }
             }
             renderMap();
         }
@@ -211,7 +225,6 @@
                         const idx = row * 6 + col;
                         let n = nodes[idx];
 
-                        // CANLI MOD MÜDAHALESİ (Filtre en başta kontrol edilir)
                         if (activeLiveTool === "plus" && n.energy !== null && !n.isBlock) {
                             n.energy = Math.min(n.maxEnergy, n.energy + 1);
                             n.yon = (n.energy === n.maxEnergy) ? -1 : n.yon;
@@ -222,7 +235,6 @@
                             renderMap(); return;
                         }
 
-                        // STANDART FAZ TIKLAMALARI
                         if (currentPhase === 1) {
                             if (!n.isBlock && n.maxEnergy === 3) { n.maxEnergy = 2; }
                             else if (!n.isBlock && n.maxEnergy === 2) { n.maxEnergy = 1; }
@@ -236,9 +248,7 @@
                             else { n.energy = null; }
                             renderMap();
                         } else if (currentPhase === 3) {
-                            if (!n.isBlock && n.energy !== null) {
-                                advanceTurn(idx);
-                            }
+                            if (!n.isBlock && n.energy !== null) advanceTurn(idx);
                         }
                         return;
                     }
@@ -246,44 +256,92 @@
             }
         });
 
-        document.getElementById('btn_p1').addEventListener('click', () => {
-            currentPhase = 1; turn = 1; activeLiveTool = "none"; updateUI(); renderMap();
+        // DÜZELTİLDİ: ADLANDIRILMIŞ NESNE TABANLI IMPORT/EXPORT SİSTEMİ
+        document.getElementById('export_btn').addEventListener('click', () => {
+            let sourceNodes = (currentPhase === 3 && savedSnapshot.length > 0) ? savedSnapshot : nodes;
+            
+            // Map/Object yapısı oluşturuluyor
+            let nodesContainer = {};
+            sourceNodes.forEach((n, idx) => {
+                let keyName = "node_" + (idx + 1); // "node_1", "node_2"...
+                nodesContainer[keyName] = {
+                    energy: n.energy,
+                    maxEnergy: n.maxEnergy,
+                    isBlock: n.isBlock,
+                    gridIndex: idx // Harita dizilim sırasını kaybetmemek için ek veri
+                };
+            });
+
+            let exportData = {
+                mapNote: document.getElementById('map_note_input').value,
+                nodes: nodesContainer
+            };
+
+            const jsonStr = JSON.stringify(exportData, null, 2); // Düzenli ve okunaklı format
+            document.getElementById('json_area').value = jsonStr;
+            
+            navigator.clipboard.writeText(jsonStr);
+            alert("Map data exported with named keys and copied to clipboard!");
         });
 
-        document.getElementById('btn_p2').addEventListener('click', () => {
-            if (currentPhase === 3 && savedSnapshot.length > 0) {
-                nodes = savedSnapshot.map(n => ({ energy: n.energy, yon: n.yon, maxEnergy: n.maxEnergy, isBlock: n.isBlock }));
+        document.getElementById('import_btn').addEventListener('click', () => {
+            try {
+                const rawJson = document.getElementById('json_area').value;
+                if(!rawJson.trim()) { alert("Please paste JSON data first!"); return; }
+                
+                const parsed = JSON.parse(rawJson);
+                if(!parsed.nodes || typeof parsed.nodes !== 'object') { throw new Error("Invalid map structure. Nodes must be a named object."); }
+
+                document.getElementById('map_note_input').value = parsed.mapNote || "";
+                
+                // Eski haritayı temizle ve doldur
+                let loadedNodes = new Array(18).fill(null).map(() => ({ energy: null, yon: -1, maxEnergy: 3, isBlock: false }));
+                
+                // Geometrik anahtarları oku (node_1, node_2 vs.)
+                Object.keys(parsed.nodes).forEach(key => {
+                    let nData = parsed.nodes[key];
+                    let idx = nData.gridIndex;
+                    
+                    // Eğer gridIndex yoksa anahtar isminden numarayı çıkarmaya çalış (Geriye dönük uyumluluk)
+                    if(idx === undefined) {
+                        idx = parseInt(key.replace("node_", "")) - 1;
+                    }
+                    
+                    if(idx >= 0 && idx < 18) {
+                        loadedNodes[idx] = {
+                            energy: nData.energy !== undefined ? nData.energy : null,
+                            maxEnergy: nData.maxEnergy || 3,
+                            isBlock: !!nData.isBlock,
+                            yon: (nData.energy === 0) ? 1 : -1
+                        };
+                    }
+                });
+
+                nodes = loadedNodes;
+                currentPhase = 2; 
+                turn = 1; activeLiveTool = "none";
+                updateUI(); renderMap();
+                alert("Named-node map loaded successfully!");
+            } catch(e) {
+                alert("JSON Import Failed! Error: " + e.message);
             }
+        });
+
+        document.getElementById('btn_p1').addEventListener('click', () => { currentPhase = 1; turn = 1; activeLiveTool = "none"; updateUI(); renderMap(); });
+        document.getElementById('btn_p2').addEventListener('click', () => {
+            if (currentPhase === 3 && savedSnapshot.length > 0) nodes = savedSnapshot.map(n => ({...n}));
             currentPhase = 2; turn = 1; activeLiveTool = "none"; updateUI(); renderMap();
         });
-
         document.getElementById('btn_p3').addEventListener('click', () => {
             if (currentPhase !== 3) {
-                for (let i = 0; i < nodes.length; i++) {
-                    let n = nodes[i];
-                    if (n.energy === null || n.isBlock) continue;
-                    n.yon = (n.energy === 0) ? 1 : -1;
-                }
-                savedSnapshot = nodes.map(n => ({ energy: n.energy, yon: n.yon, maxEnergy: n.maxEnergy, isBlock: n.isBlock }));
+                for (let i = 0; i < nodes.length; i++) { if (nodes[i].energy !== null && !nodes[i].isBlock) nodes[i].yon = (nodes[i].energy === 0) ? 1 : -1; }
+                savedSnapshot = nodes.map(n => ({...n}));
             }
             currentPhase = 3; updateUI(); renderMap();
         });
-
-        document.getElementById('live_plus_btn').addEventListener('click', () => {
-            if (currentPhase !== 3) return; // Sadece simülasyonda çalışır
-            activeLiveTool = (activeLiveTool === "plus") ? "none" : "plus";
-            updateUI();
-        });
-
-        document.getElementById('live_minus_btn').addEventListener('click', () => {
-            if (currentPhase !== 3) return; // Sadece simülasyonda çalışır
-            activeLiveTool = (activeLiveTool === "minus") ? "none" : "minus";
-            updateUI();
-        });
-
-        document.getElementById('reset_btn').addEventListener('click', () => {
-            turn = 1; currentPhase = 1; activeLiveTool = "none"; initEmptyMap(); updateUI(); renderMap();
-        });
+        document.getElementById('live_plus_btn').addEventListener('click', () => { if (currentPhase === 3) { activeLiveTool = (activeLiveTool === "plus") ? "none" : "plus"; updateUI(); } });
+        document.getElementById('live_minus_btn').addEventListener('click', () => { if (currentPhase === 3) { activeLiveTool = (activeLiveTool === "minus") ? "none" : "minus"; updateUI(); } });
+        document.getElementById('reset_btn').addEventListener('click', () => { turn = 1; currentPhase = 1; activeLiveTool = "none"; initEmptyMap(); updateUI(); renderMap(); });
 
         initEmptyMap(); updateUI(); renderMap();
     </script>
