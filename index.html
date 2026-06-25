@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Tide Hexagon Simulator v28.1 (Named Nodes JSON)</title>
+    <title>Tide Hexagon Simulator v28.2 (TXT Export Support)</title>
     <style>
         body { background: #121212; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
         .info-panel { font-size: 18px; margin-bottom: 15px; color: #aaa; display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -28,7 +28,7 @@
         .json-box h3 { margin-top: 0; color: #00e5ff; font-size: 16px; }
         .json-textarea { width: 100%; height: 110px; background: #111; color: #2ecc71; border: 1px solid #333; font-family: monospace; font-size: 11px; padding: 5px; box-sizing: border-box; resize: none; }
         .note-input { width: 100%; padding: 8px; background: #222; border: 1px solid #444; color: white; border-radius: 4px; margin-bottom: 10px; box-sizing: border-box; }
-        .json-actions { display: flex; gap: 10px; margin-top: 10px; }
+        .json-actions { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
         .io-btn { background: #7f8c8d; font-size: 12px; padding: 6px 12px; }
     </style>
 </head>
@@ -61,12 +61,14 @@
         <div class="leg-item"><div class="leg-box" style="background:#0a0a0a; border:1px dashed #555;"></div> [B] Block</div>
     </div>
 
+    <!-- DATA MANAGEMENT ZONE -->
     <div class="json-box">
-        <h3>🗺️ Level Data Editor (Named Nodes Support)</h3>
+        <h3>🗺️ Level Data Editor (TXT File Export & Import Support)</h3>
         <input type="text" id="map_note_input" class="note-input" placeholder="✍️ Harita notu, tasarımcı yorumu veya çözüm ipucu ekle..." />
         <textarea id="json_area" class="json-textarea" placeholder="JSON çıktıları burada isimlendirilmiş (node_1, node_2...) olarak görünecek..."></textarea>
         <div class="json-actions">
             <button id="export_btn" class="btn io-btn" style="background:#8e44ad;">📥 Export Map Data</button>
+            <button id="download_txt_btn" class="btn io-btn" style="background:#2980b9;">💾 Download .txt File</button>
             <button id="import_btn" class="btn io-btn" style="background:#16a085;">📤 Import / Load JSON</button>
         </div>
     </div>
@@ -162,7 +164,6 @@
             ctx.stroke();
             ctx.restore();
 
-            // Kılavuz İndeks Bilgisi (Üst Kısım - Sadece Editör Fazlarında Görünür)
             if (currentPhase !== 3) {
                 ctx.fillStyle = 'rgba(255,255,255,0.2)';
                 ctx.font = '9px monospace';
@@ -213,6 +214,26 @@
             renderMap();
         }
 
+        function getExportString() {
+            let sourceNodes = (currentPhase === 3 && savedSnapshot.length > 0) ? savedSnapshot : nodes;
+            let nodesContainer = {};
+            sourceNodes.forEach((n, idx) => {
+                let keyName = "node_" + (idx + 1);
+                nodesContainer[keyName] = {
+                    energy: n.energy,
+                    maxEnergy: n.maxEnergy,
+                    isBlock: n.isBlock,
+                    gridIndex: idx
+                };
+            });
+
+            let exportData = {
+                mapNote: document.getElementById('map_note_input').value,
+                nodes: nodesContainer
+            };
+            return JSON.stringify(exportData, null, 2);
+        }
+
         canvas.addEventListener('click', (e) => {
             const rect = canvas.getBoundingClientRect();
             const mX = e.clientX - rect.left;
@@ -256,32 +277,29 @@
             }
         });
 
-        // DÜZELTİLDİ: ADLANDIRILMIŞ NESNE TABANLI IMPORT/EXPORT SİSTEMİ
         document.getElementById('export_btn').addEventListener('click', () => {
-            let sourceNodes = (currentPhase === 3 && savedSnapshot.length > 0) ? savedSnapshot : nodes;
-            
-            // Map/Object yapısı oluşturuluyor
-            let nodesContainer = {};
-            sourceNodes.forEach((n, idx) => {
-                let keyName = "node_" + (idx + 1); // "node_1", "node_2"...
-                nodesContainer[keyName] = {
-                    energy: n.energy,
-                    maxEnergy: n.maxEnergy,
-                    isBlock: n.isBlock,
-                    gridIndex: idx // Harita dizilim sırasını kaybetmemek için ek veri
-                };
-            });
-
-            let exportData = {
-                mapNote: document.getElementById('map_note_input').value,
-                nodes: nodesContainer
-            };
-
-            const jsonStr = JSON.stringify(exportData, null, 2); // Düzenli ve okunaklı format
+            const jsonStr = getExportString();
             document.getElementById('json_area').value = jsonStr;
-            
             navigator.clipboard.writeText(jsonStr);
             alert("Map data exported with named keys and copied to clipboard!");
+        });
+
+        // DOSYA OLARAK INDIRME FONKSIYONU
+        document.getElementById('download_txt_btn').addEventListener('click', () => {
+            const dataStr = getExportString();
+            const blob = new Blob([dataStr], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            let mapName = document.getElementById('map_note_input').value.trim() || "tide_level";
+            mapName = mapName.toLowerCase().replace(/[^a-z0-9]/g, "_") || "level_data";
+            
+            a.href = url;
+            a.download = mapName + ".txt";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         });
 
         document.getElementById('import_btn').addEventListener('click', () => {
@@ -290,22 +308,15 @@
                 if(!rawJson.trim()) { alert("Please paste JSON data first!"); return; }
                 
                 const parsed = JSON.parse(rawJson);
-                if(!parsed.nodes || typeof parsed.nodes !== 'object') { throw new Error("Invalid map structure. Nodes must be a named object."); }
+                if(!parsed.nodes || typeof parsed.nodes !== 'object') { throw new Error("Invalid structure."); }
 
                 document.getElementById('map_note_input').value = parsed.mapNote || "";
-                
-                // Eski haritayı temizle ve doldur
                 let loadedNodes = new Array(18).fill(null).map(() => ({ energy: null, yon: -1, maxEnergy: 3, isBlock: false }));
                 
-                // Geometrik anahtarları oku (node_1, node_2 vs.)
                 Object.keys(parsed.nodes).forEach(key => {
                     let nData = parsed.nodes[key];
                     let idx = nData.gridIndex;
-                    
-                    // Eğer gridIndex yoksa anahtar isminden numarayı çıkarmaya çalış (Geriye dönük uyumluluk)
-                    if(idx === undefined) {
-                        idx = parseInt(key.replace("node_", "")) - 1;
-                    }
+                    if(idx === undefined) idx = parseInt(key.replace("node_", "")) - 1;
                     
                     if(idx >= 0 && idx < 18) {
                         loadedNodes[idx] = {
@@ -318,10 +329,9 @@
                 });
 
                 nodes = loadedNodes;
-                currentPhase = 2; 
-                turn = 1; activeLiveTool = "none";
+                currentPhase = 2; turn = 1; activeLiveTool = "none";
                 updateUI(); renderMap();
-                alert("Named-node map loaded successfully!");
+                alert("Map loaded successfully!");
             } catch(e) {
                 alert("JSON Import Failed! Error: " + e.message);
             }
